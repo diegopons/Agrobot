@@ -1,50 +1,41 @@
 {
-  "generado_utc": "2026-10-13T16:41:29Z",
+  "generado_utc": "2026-10-14T14:17:45Z",
   "lote": {
     "nombre": "lote_6",
     "area_ha": 24.95
   },
   "campana": {
     "fecha_siembra": "2026-05-28",
-    "dias_desde_siembra": 136
+    "dias_desde_siembra": 137
   },
   "estado_actual": {
-    "fecha_del_dato": "2026-10-11",
+    "fecha_del_dato": "2026-10-12",
     "dias_de_atraso": 2,
-    "agua_util_mm": 253.9,
+    "agua_util_mm": 253.2,
     "agua_util_maxima_mm": 315.2,
-    "porcentaje_agua_util": 80.6,
+    "porcentaje_agua_util": 80.3,
     "condicion": "cómodo",
     "umbral_de_riego_pct": 50.0,
     "necesita_riego": false,
-    "falta_para_capacidad_de_campo_mm": 61.3,
+    "falta_para_capacidad_de_campo_mm": 62.1,
     "riego_sugerido_neto_mm": 0.0,
     "riego_sugerido_bruto_mm": 0.0,
     "eficiencia_de_aplicacion": 0.85,
     "riego_ajustado_por_pronostico": null,
     "ndvi": 0.345,
     "profundidad_raiz_cm": 200.0,
-    "consumo_del_dia_mm": 0.97
+    "consumo_del_dia_mm": 0.8
   },
   "acumulados_de_campana": {
     "lluvia_mm": 134.6,
     "lluvia_efectiva_mm": 123.0,
     "riego_aplicado_mm": 0.0,
-    "eto_mm": 303.2,
-    "consumo_del_cultivo_mm": 80.3,
+    "eto_mm": 305.1,
+    "consumo_del_cultivo_mm": 81.1,
     "percolacion_mm": 9.1,
-    "dias_calculados": 137
+    "dias_calculados": 138
   },
   "ultimos_dias": [
-    {
-      "fecha": "2026-09-28",
-      "lluvia_mm": 5.8,
-      "eto_mm": 3.29,
-      "consumo_mm": 1.47,
-      "agua_util_mm": 222.3,
-      "porcentaje_agua_util": 70.5,
-      "ndvi": 0.365
-    },
     {
       "fecha": "2026-09-29",
       "lluvia_mm": 0.0,
@@ -161,6 +152,15 @@
       "agua_util_mm": 253.9,
       "porcentaje_agua_util": 80.6,
       "ndvi": 0.345
+    },
+    {
+      "fecha": "2026-10-12",
+      "lluvia_mm": 0.0,
+      "eto_mm": 1.93,
+      "consumo_mm": 0.8,
+      "agua_util_mm": 253.2,
+      "porcentaje_agua_util": 80.3,
+      "ndvi": 0.345
     }
   ],
   "origen_de_los_datos": {
@@ -171,60 +171,60 @@
     }
   },
   "pronostico": {
-    "resumen": "Proyección a 9 días: no cruza el umbral; quedaría en 83 % el 22/10. Lluvia esperada: 20 mm.",
+    "resumen": "Proyección a 9 días: no cruza el umbral; quedaría en 85 % el 23/10. Lluvia esperada: 24 mm.",
     "dias": 9,
-    "lluvia_esperada_mm": 20.4,
+    "lluvia_esperada_mm": 24.1,
     "por_dia": [
       {
-        "fecha": "2026-10-14",
-        "lluvia_mm": 5.5,
-        "eto_mm": 2.92
-      },
-      {
         "fecha": "2026-10-15",
-        "lluvia_mm": 4.0,
-        "eto_mm": 3.42
+        "lluvia_mm": 1.6,
+        "eto_mm": 3.46
       },
       {
         "fecha": "2026-10-16",
-        "lluvia_mm": 2.5,
-        "eto_mm": 3.66
+        "lluvia_mm": 1.0,
+        "eto_mm": 3.4
       },
       {
         "fecha": "2026-10-17",
-        "lluvia_mm": 5.0,
-        "eto_mm": 2.31
+        "lluvia_mm": 1.1,
+        "eto_mm": 1.56
       },
       {
         "fecha": "2026-10-18",
         "lluvia_mm": 0.0,
-        "eto_mm": 2.78
+        "eto_mm": 3.07
       },
       {
         "fecha": "2026-10-19",
-        "lluvia_mm": 0.6,
-        "eto_mm": 2.63
+        "lluvia_mm": 9.5,
+        "eto_mm": 1.24
       },
       {
         "fecha": "2026-10-20",
-        "lluvia_mm": 0.0,
-        "eto_mm": 2.98
+        "lluvia_mm": 7.1,
+        "eto_mm": 2.37
       },
       {
         "fecha": "2026-10-21",
-        "lluvia_mm": 0.6,
-        "eto_mm": 3.69
+        "lluvia_mm": 2.8,
+        "eto_mm": 2.82
       },
       {
         "fecha": "2026-10-22",
-        "lluvia_mm": 2.2,
-        "eto_mm": 3.22
+        "lluvia_mm": 1.0,
+        "eto_mm": 3.62
+      },
+      {
+        "fecha": "2026-10-23",
+        "lluvia_mm": 0.0,
+        "eto_mm": 2.76
       }
     ],
     "proxima_lluvia": {
-      "fecha": "2026-10-14",
-      "en_dias": 1,
-      "mm": 5.5
+      "fecha": "2026-10-19",
+      "en_dias": 5,
+      "mm": 9.5
     }
   },
   "advertencias": [

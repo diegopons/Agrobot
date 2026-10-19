@@ -1,171 +1,171 @@
 {
-  "generado_utc": "2026-10-19T16:08:46Z",
+  "generado_utc": "2026-10-19T18:24:40Z",
   "lote": {
-    "nombre": "lote_6",
+    "nombre": "Pilar 2  - Círculo 3",
     "area_ha": 92.05
   },
   "campana": {
-    "fecha_siembra": "2026-05-28",
-    "dias_desde_siembra": 142
+    "fecha_siembra": "2026-09-30",
+    "dias_desde_siembra": 19
   },
   "estado_actual": {
-    "fecha_del_dato": "2026-10-17",
-    "dias_de_atraso": 2,
-    "agua_util_mm": 315.2,
-    "agua_util_maxima_mm": 315.2,
-    "porcentaje_agua_util": 100.0,
+    "fecha_del_dato": "2026-10-19",
+    "dias_de_atraso": 0,
+    "agua_util_mm": 72.7,
+    "agua_util_maxima_mm": 74.2,
+    "porcentaje_agua_util": 98.0,
     "condicion": "cómodo",
     "umbral_de_riego_pct": 50.0,
     "necesita_riego": false,
-    "falta_para_capacidad_de_campo_mm": 0.0,
+    "falta_para_capacidad_de_campo_mm": 1.5,
     "riego_sugerido_neto_mm": 0.0,
     "riego_sugerido_bruto_mm": 0.0,
     "eficiencia_de_aplicacion": 0.85,
     "riego_ajustado_por_pronostico": null,
-    "ndvi": 0.067,
-    "profundidad_raiz_cm": 200.0,
-    "consumo_del_dia_mm": 0.25
+    "ndvi": 0.3,
+    "profundidad_raiz_cm": 40.0,
+    "consumo_del_dia_mm": 0.88
   },
   "acumulados_de_campana": {
-    "lluvia_mm": 156.7,
-    "lluvia_efectiva_mm": 146.7,
+    "lluvia_mm": 51.7,
+    "lluvia_efectiva_mm": 50.3,
     "riego_aplicado_mm": 0.0,
-    "eto_mm": 359.0,
-    "consumo_del_cultivo_mm": 36.0,
-    "percolacion_mm": 26.7,
-    "dias_calculados": 143
+    "eto_mm": 65.5,
+    "consumo_del_cultivo_mm": 21.8,
+    "percolacion_mm": 15.7,
+    "dias_calculados": 20
   },
   "ultimos_dias": [
-    {
-      "fecha": "2026-10-04",
-      "lluvia_mm": 0.0,
-      "eto_mm": 4.46,
-      "consumo_mm": 0.45,
-      "agua_util_mm": 287.9,
-      "porcentaje_agua_util": 91.3,
-      "ndvi": 0.067
-    },
-    {
-      "fecha": "2026-10-05",
-      "lluvia_mm": 0.0,
-      "eto_mm": 4.87,
-      "consumo_mm": 0.49,
-      "agua_util_mm": 287.4,
-      "porcentaje_agua_util": 91.2,
-      "ndvi": 0.067
-    },
     {
       "fecha": "2026-10-06",
       "lluvia_mm": 0.5,
       "eto_mm": 5.06,
-      "consumo_mm": 0.51,
-      "agua_util_mm": 287.4,
-      "porcentaje_agua_util": 91.2,
-      "ndvi": 0.067
+      "consumo_mm": 1.68,
+      "agua_util_mm": 52.5,
+      "porcentaje_agua_util": 70.6,
+      "ndvi": 0.3
     },
     {
       "fecha": "2026-10-07",
       "lluvia_mm": 9.7,
       "eto_mm": 2.9,
-      "consumo_mm": 0.29,
-      "agua_util_mm": 296.8,
-      "porcentaje_agua_util": 94.2,
-      "ndvi": 0.067
+      "consumo_mm": 0.97,
+      "agua_util_mm": 61.2,
+      "porcentaje_agua_util": 82.4,
+      "ndvi": 0.3
     },
     {
       "fecha": "2026-10-08",
       "lluvia_mm": 1.8,
       "eto_mm": 2.87,
-      "consumo_mm": 0.29,
-      "agua_util_mm": 298.3,
-      "porcentaje_agua_util": 94.6,
-      "ndvi": 0.067
+      "consumo_mm": 0.96,
+      "agua_util_mm": 62.0,
+      "porcentaje_agua_util": 83.5,
+      "ndvi": 0.3
     },
     {
       "fecha": "2026-10-09",
       "lluvia_mm": 3.9,
       "eto_mm": 1.98,
-      "consumo_mm": 0.2,
-      "agua_util_mm": 302.0,
-      "porcentaje_agua_util": 95.8,
-      "ndvi": 0.067
+      "consumo_mm": 0.66,
+      "agua_util_mm": 65.3,
+      "porcentaje_agua_util": 87.9,
+      "ndvi": 0.3
     },
     {
       "fecha": "2026-10-10",
       "lluvia_mm": 0.2,
       "eto_mm": 2.29,
-      "consumo_mm": 0.23,
-      "agua_util_mm": 302.0,
-      "porcentaje_agua_util": 95.8,
-      "ndvi": 0.067
+      "consumo_mm": 0.76,
+      "agua_util_mm": 64.7,
+      "porcentaje_agua_util": 87.2,
+      "ndvi": 0.3
     },
     {
       "fecha": "2026-10-11",
       "lluvia_mm": 4.7,
       "eto_mm": 1.97,
-      "consumo_mm": 0.2,
-      "agua_util_mm": 306.5,
-      "porcentaje_agua_util": 97.2,
-      "ndvi": 0.067
+      "consumo_mm": 0.66,
+      "agua_util_mm": 68.8,
+      "porcentaje_agua_util": 92.6,
+      "ndvi": 0.3
     },
     {
       "fecha": "2026-10-12",
       "lluvia_mm": 18.3,
       "eto_mm": 1.45,
-      "consumo_mm": 0.14,
-      "agua_util_mm": 315.2,
+      "consumo_mm": 0.48,
+      "agua_util_mm": 74.2,
       "porcentaje_agua_util": 100.0,
-      "ndvi": 0.067
+      "ndvi": 0.3
     },
     {
       "fecha": "2026-10-13",
       "lluvia_mm": 2.9,
       "eto_mm": 2.26,
-      "consumo_mm": 0.23,
-      "agua_util_mm": 315.2,
+      "consumo_mm": 0.75,
+      "agua_util_mm": 74.2,
       "porcentaje_agua_util": 100.0,
-      "ndvi": 0.067
+      "ndvi": 0.3
     },
     {
       "fecha": "2026-10-14",
       "lluvia_mm": 3.2,
       "eto_mm": 3.18,
-      "consumo_mm": 0.32,
-      "agua_util_mm": 315.2,
+      "consumo_mm": 1.06,
+      "agua_util_mm": 74.2,
       "porcentaje_agua_util": 100.0,
-      "ndvi": 0.067
+      "ndvi": 0.3
     },
     {
       "fecha": "2026-10-15",
       "lluvia_mm": 1.6,
       "eto_mm": 3.22,
-      "consumo_mm": 0.32,
-      "agua_util_mm": 315.2,
+      "consumo_mm": 1.07,
+      "agua_util_mm": 74.2,
       "porcentaje_agua_util": 100.0,
-      "ndvi": 0.067
+      "ndvi": 0.3
     },
     {
       "fecha": "2026-10-16",
       "lluvia_mm": 0.9,
       "eto_mm": 3.24,
-      "consumo_mm": 0.32,
-      "agua_util_mm": 315.2,
-      "porcentaje_agua_util": 100.0,
-      "ndvi": 0.067
+      "consumo_mm": 1.08,
+      "agua_util_mm": 74.1,
+      "porcentaje_agua_util": 99.8,
+      "ndvi": 0.3
     },
     {
       "fecha": "2026-10-17",
       "lluvia_mm": 0.8,
       "eto_mm": 2.54,
-      "consumo_mm": 0.25,
-      "agua_util_mm": 315.2,
-      "porcentaje_agua_util": 100.0,
-      "ndvi": 0.067
+      "consumo_mm": 0.85,
+      "agua_util_mm": 74.0,
+      "porcentaje_agua_util": 99.7,
+      "ndvi": 0.3
+    },
+    {
+      "fecha": "2026-10-18",
+      "lluvia_mm": 0.0,
+      "eto_mm": 3.32,
+      "consumo_mm": 1.11,
+      "agua_util_mm": 72.9,
+      "porcentaje_agua_util": 98.2,
+      "ndvi": 0.3
+    },
+    {
+      "fecha": "2026-10-19",
+      "lluvia_mm": 0.7,
+      "eto_mm": 2.65,
+      "consumo_mm": 0.88,
+      "agua_util_mm": 72.7,
+      "porcentaje_agua_util": 98.0,
+      "ndvi": 0.3
     }
   ],
   "origen_de_los_datos": {
     "fuentes_que_fallaron": {
-      "siga": "La estación NH0438 no tiene datos entre 2026-05-28 y 2026-10-17."
+      "siga": "La estación NH0438 no tiene datos entre 2026-09-30 y 2026-10-19."
     }
   },
   "pronostico": {
@@ -226,13 +226,14 @@
     }
   },
   "calidad_ndvi": {
-    "fechas_con_dato": 4,
+    "fechas_con_dato": 0,
     "descartadas_por_cobertura": 0,
-    "descartadas_fuera_de_rango": 9,
+    "descartadas_fuera_de_rango": 1,
     "ndvi_previo_descartado": null
   },
   "advertencias": [
-    "9 fecha(s) de Sentinel-2 se descartaron por NDVI medio fuera del rango plausible: el polígono puede incluir superficie que no es el lote (agua, camino, monte) o estar desplazado. Conviene revisarlo antes de usar la estimación.",
+    "INCONSISTENTE: en este tramo no quedó ninguna fecha con NDVI válido. La curva se sostiene sobre supuestos, no sobre observaciones: no responder sobre el estado del cultivo.",
+    "1 fecha(s) de Sentinel-2 se descartaron por NDVI medio fuera del rango plausible: el polígono puede incluir superficie que no es el lote (agua, camino, monte) o estar desplazado. Conviene revisarlo antes de usar la estimación.",
     "Es una estimación de apoyo: no reemplaza la recorrida del lote ni una calicata."
   ]
 }

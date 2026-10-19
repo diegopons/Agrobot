@@ -28,11 +28,31 @@ logger = logging.getLogger(__name__)
 
 STATISTICS_URL = "https://sh.dataspace.copernicus.eu/api/v1/statistics"
 
-# Evalscript: calcula NDVI y devuelve además una máscara de validez (dataMask)
-# que excluye nubes (8,9,10), cirros, sombra de nubes (3) y nieve (11) según
-# la clasificación SCL de Sentinel-2 L2A. La Statistical API usa la banda
-# "dataMask" del output para decidir qué píxeles entran en las estadísticas.
-EVALSCRIPT_NDVI = """
+# Clases de la Scene Classification Layer de Sentinel-2 L2A:
+#
+#   0 sin datos          4 vegetación         8 nube, prob. media
+#   1 saturado/defectuoso 5 suelo desnudo     9 nube, prob. alta
+#   2 píxel oscuro/sombra 6 AGUA             10 cirros delgados
+#   3 sombra de nube      7 sin clasificar   11 nieve o hielo
+#
+# Se declaran VÁLIDAS las clases aceptadas, no las rechazadas. Antes era al
+# revés —se excluían 3, 8, 9, 10 y 11— y eso dejaba entrar al promedio las
+# clases 0, 1, 2, 6 y 7, que sobre un lote no son dato: el agua da NDVI de
+# −0,3 a −0,6, los píxeles oscuros dan valores negativos y ruidosos, y los
+# que no tienen dato aportan cero. Esos píxeles además contaban como válidos
+# para el control de cobertura, así que una fecha contaminada pasaba el filtro
+# y arrastraba el promedio del lote a valores negativos.
+#
+# Con lista blanca, una clase nueva o inesperada queda afuera por defecto, que
+# es el lado correcto para equivocarse: un hueco se interpola, un valor
+# contaminado se propaga.
+SCL_VALIDAS_DEFECTO = (4, 5)
+
+
+def _evalscript(scl_validas) -> str:
+    """Evalscript con la lista blanca de clases SCL embebida."""
+    condicion = " || ".join(f"scl == {int(c)}" for c in scl_validas)
+    return """
 //VERSION=3
 function setup() {
   return {
@@ -46,17 +66,14 @@ function setup() {
 
 function evaluatePixel(sample) {
   var scl = sample.SCL;
-  // Clases SCL a excluir: 3 sombra de nube, 8/9 nube media/alta prob.,
-  // 10 cirros delgados, 11 nieve/hielo.
-  var invalida = (scl == 3 || scl == 8 || scl == 9 || scl == 10 || scl == 11);
+  var valida = (__CONDICION__);
   var ndvi = (sample.B08 - sample.B04) / (sample.B08 + sample.B04 + 1e-9);
-  var mascara = invalida ? 0 : sample.dataMask;
   return {
     data: [ndvi],
-    dataMask: [mascara]
+    dataMask: [valida ? sample.dataMask : 0]
   };
 }
-"""
+""".replace("__CONDICION__", condicion)
 
 
 def obtener_serie_ndvi(
@@ -68,6 +85,8 @@ def obtener_serie_ndvi(
     max_cloud_coverage: int = 60,
     resolucion_m: int = 10,
     min_pixeles_validos_pct: float = 70.0,
+    scl_validas=SCL_VALIDAS_DEFECTO,
+    ndvi_minimo_valido: float = 0.0,
 ) -> pd.DataFrame:
     """Devuelve un DataFrame diario (fecha, ndvi, cobertura_pct) del rango.
 
@@ -75,6 +94,13 @@ def obtener_serie_ndvi(
     ndvi = NaN; el arrastre (ffill) se resuelve más adelante, en el módulo de
     balance, para no perder información sobre qué días son realmente datos
     satelitales vs. arrastrados.
+
+    `ndvi_minimo_valido` es un control de plausibilidad sobre el promedio del
+    lote: por debajo de ese valor la fecha se descarta. Sobre una superficie
+    agrícola un NDVI medio negativo no es una medición baja, es un síntoma de
+    que al promedio entró algo que no es el lote. El piso por defecto es cero,
+    que es el único umbral que no puede descartar un dato legítimo: ni el suelo
+    desnudo más húmedo da negativo.
     """
     token = obtener_token(client_id, client_secret)
 
@@ -97,7 +123,7 @@ def obtener_serie_ndvi(
                 "to": f"{fecha_fin}T23:59:59Z",
             },
             "aggregationInterval": {"of": "P1D"},
-            "evalscript": EVALSCRIPT_NDVI,
+            "evalscript": _evalscript(scl_validas),
             "resx": resolucion_m,
             "resy": resolucion_m,
         },
@@ -117,6 +143,7 @@ def obtener_serie_ndvi(
 
     body = resp.json()
     filas = []
+    descartes = {"cobertura": 0, "sin_pixeles": 0, "fuera_de_rango": 0}
     for intervalo in body.get("data", []):
         fecha_str = intervalo["interval"]["from"][:10]
         try:
@@ -137,15 +164,49 @@ def obtener_serie_ndvi(
                     "  %s descartado: solo %.0f%% del lote con píxeles válidos.",
                     fecha_str, cobertura,
                 )
+                descartes["cobertura"] += 1
+            else:
+                descartes["sin_pixeles"] += 1
             ndvi_val = None
         else:
             ndvi_val = stats.get("mean")
+            # Control de plausibilidad. Si llega hasta acá un promedio fuera
+            # de rango, el enmascarado dejó pasar algo que no es el lote.
+            if ndvi_val is None or not (ndvi_minimo_valido <= ndvi_val <= 1.0):
+                logger.warning(
+                    "  %s DESCARTADO: NDVI medio %.4f fuera del rango "
+                    "plausible [%.2f, 1.00] con %.0f%% de cobertura. "
+                    "Revisá que el polígono cubra solo el lote.",
+                    fecha_str, ndvi_val if ndvi_val is not None else float("nan"),
+                    ndvi_minimo_valido, cobertura,
+                )
+                descartes["fuera_de_rango"] += 1
+                ndvi_val = None
         filas.append({"fecha": fecha_str, "ndvi": ndvi_val, "cobertura_pct": round(cobertura, 1)})
 
     df = pd.DataFrame(filas)
     if df.empty:
         df = pd.DataFrame(columns=["fecha", "ndvi", "cobertura_pct"])
     df["fecha"] = pd.to_datetime(df["fecha"])
+
+    validas = int(df["ndvi"].notna().sum()) if len(df) else 0
+    logger.info(
+        "NDVI: %d fecha(s) con dato de %d pasada(s). Descartadas: "
+        "%d por cobertura, %d sin píxeles, %d fuera de rango.",
+        validas, len(df), descartes["cobertura"], descartes["sin_pixeles"],
+        descartes["fuera_de_rango"],
+    )
+    if descartes["fuera_de_rango"]:
+        logger.warning(
+            "%d fecha(s) con NDVI fuera de rango. La causa más frecuente es un "
+            "polígono que incluye superficie que no es el lote (agua, camino, "
+            "monte) o que está desplazado respecto del cultivo.",
+            descartes["fuera_de_rango"],
+        )
+    # Se adjunta el diagnóstico al DataFrame para que la corrida pueda
+    # publicarlo sin cambiar la firma de la función.
+    df.attrs["descartes"] = descartes
+    df.attrs["fechas_con_dato"] = validas
     return df
 
 

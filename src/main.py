@@ -281,11 +281,17 @@ def main(config_path: str = "config.yaml") -> int:
         max_cloud_coverage=cfg["cdse"]["max_cloud_coverage"],
         resolucion_m=cfg["cdse"]["resolucion_m"],
         min_pixeles_validos_pct=cfg["cdse"].get("min_pixeles_validos_pct", 70.0),
+        scl_validas=tuple(cfg["cdse"].get("scl_validas", (4, 5))),
+        ndvi_minimo_valido=float(cfg["cdse"].get("ndvi_minimo_valido", 0.0)),
     )
     log.info(
         "NDVI: %d fechas con imagen utilizable en el rango.",
         df_ndvi["ndvi"].notna().sum(),
     )
+    diag_ndvi = {
+        "fechas_con_dato": int(df_ndvi.attrs.get("fechas_con_dato", 0)),
+        "descartes": dict(df_ndvi.attrs.get("descartes", {})),
+    }
     # Fechas con observación real: son las que valen para el mosaico
     fechas_con_imagen = [
         d.strftime("%Y-%m-%d")
@@ -330,10 +336,29 @@ def main(config_path: str = "config.yaml") -> int:
         on="fecha", how="left",
     )
 
+    # El NDVI arrastrado de la corrida anterior pasa por el mismo control de
+    # plausibilidad: si quedó guardado un valor contaminado (antes del
+    # enmascarado por lista blanca, una fecha con agua o sombra podía pasar el
+    # filtro), se lo descarta acá. Si no se descarta, el valor malo se sigue
+    # arrastrando corrida tras corrida aunque el enmascarado ya esté corregido.
+    ndvi_piso = float(cfg["cdse"].get("ndvi_minimo_valido", 0.0))
+    ndvi_previo = estado.ultimo_ndvi_valido
+    if ndvi_previo is not None and not (ndvi_piso <= ndvi_previo <= 1.0):
+        log.warning(
+            "El NDVI guardado de la corrida anterior (%.4f) está fuera del "
+            "rango plausible [%.2f, 1.00]: se descarta y no se arrastra.",
+            ndvi_previo, ndvi_piso,
+        )
+        diag_ndvi["ndvi_previo_descartado"] = round(float(ndvi_previo), 4)
+        ndvi_previo = None
+        # También se limpia en el estado: el módulo de balance lo usa como
+        # respaldo si algún día quedara sin NDVI, y ahí volvería a entrar.
+        estado.ultimo_ndvi_valido = None
+
     # Completar los días sin imagen antes de correr el balance
     df_dias, resumen_ndvi = rellenar_ndvi(
         df_dias,
-        ndvi_previo=estado.ultimo_ndvi_valido,
+        ndvi_previo=ndvi_previo,
         max_dias_interpolar=cfg["cdse"].get("max_dias_interpolar", 30),
     )
     log.info(
@@ -531,6 +556,7 @@ def main(config_path: str = "config.yaml") -> int:
                     linea_pronostico=linea_pronostico,
                     df_pronostico=df_pronostico_pub,
                     ajuste_riego=ajuste_riego,
+                    diag_ndvi=diag_ndvi,
                 ),
                 destino=cfg.get("rutas", {}).get(
                     "estado_json_publico", "docs/estado_actual.json"),

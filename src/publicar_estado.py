@@ -45,6 +45,7 @@ def construir_estado(
     linea_pronostico: Optional[str] = None,
     df_pronostico: Optional[pd.DataFrame] = None,
     ajuste_riego: Optional[dict] = None,
+    diag_ndvi: Optional[dict] = None,
     dias_detalle: int = 14,
 ) -> dict:
     """Arma el diccionario del estado a partir del DataFrame de resultados."""
@@ -214,6 +215,40 @@ def construir_estado(
                 "La lámina sugerida repone hasta capacidad de campo y no "
                 "descuenta la lluvia pronosticada."
             )
+    # --- calidad del NDVI de la corrida -----------------------------------
+    # Sin esto el enmascarado es invisible: una corrida que descarta todas las
+    # fechas por contaminación publica exactamente lo mismo que una corrida
+    # normal, con la curva sostenida sobre el último valor. Hay que poder verlo.
+    if diag_ndvi:
+        d = diag_ndvi.get("descartes") or {}
+        fuera = int(d.get("fuera_de_rango", 0))
+        con_dato = int(diag_ndvi.get("fechas_con_dato", 0))
+        estado["calidad_ndvi"] = {
+            "fechas_con_dato": con_dato,
+            "descartadas_por_cobertura": int(d.get("cobertura", 0)),
+            "descartadas_fuera_de_rango": fuera,
+            "ndvi_previo_descartado": diag_ndvi.get("ndvi_previo_descartado"),
+        }
+        if fuera:
+            advertencias.insert(0,
+                f"{fuera} fecha(s) de Sentinel-2 se descartaron por NDVI medio "
+                "fuera del rango plausible: el polígono puede incluir superficie "
+                "que no es el lote (agua, camino, monte) o estar desplazado. "
+                "Conviene revisarlo antes de usar la estimación."
+            )
+        if diag_ndvi.get("ndvi_previo_descartado") is not None:
+            advertencias.insert(0,
+                "Se descartó el NDVI que venía guardado de la corrida anterior "
+                f"({diag_ndvi['ndvi_previo_descartado']}), porque estaba fuera "
+                "del rango plausible."
+            )
+        if con_dato == 0:
+            advertencias.insert(0,
+                "INCONSISTENTE: en este tramo no quedó ninguna fecha con NDVI "
+                "válido. La curva se sostiene sobre supuestos, no sobre "
+                "observaciones: no responder sobre el estado del cultivo."
+            )
+
     if estado["campana"]["dias_desde_siembra"] < 0:
         advertencias.insert(0,
             "INCONSISTENTE: el último dato es anterior a la fecha de siembra del "

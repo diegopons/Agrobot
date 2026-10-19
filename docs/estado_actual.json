@@ -1,5 +1,5 @@
 {
-  "generado_utc": "2026-10-19T12:18:27Z",
+  "generado_utc": "2026-10-19T12:29:50Z",
   "lote": {
     "nombre": "Pilar 2  - Círculo 3",
     "area_ha": 92.05
@@ -11,28 +11,28 @@
   "estado_actual": {
     "fecha_del_dato": "2026-10-19",
     "dias_de_atraso": 0,
-    "agua_util_mm": 73.6,
+    "agua_util_mm": 74.2,
     "agua_util_maxima_mm": 74.2,
-    "porcentaje_agua_util": 99.1,
+    "porcentaje_agua_util": 100.0,
     "condicion": "cómodo",
-    "umbral_de_riego_pct": 50.0,
+    "umbral_de_riego_pct": 58.0,
     "necesita_riego": false,
-    "falta_para_capacidad_de_campo_mm": 0.6,
+    "falta_para_capacidad_de_campo_mm": 0.0,
     "riego_sugerido_neto_mm": 0.0,
     "riego_sugerido_bruto_mm": 0.0,
     "eficiencia_de_aplicacion": 0.85,
     "riego_ajustado_por_pronostico": null,
     "ndvi": -0.085,
     "profundidad_raiz_cm": 40.0,
-    "consumo_del_dia_mm": 0.3
+    "consumo_del_dia_mm": 0.27
   },
   "acumulados_de_campana": {
-    "lluvia_mm": 51.0,
-    "lluvia_efectiva_mm": 49.6,
+    "lluvia_mm": 51.7,
+    "lluvia_efectiva_mm": 50.3,
     "riego_aplicado_mm": 0.0,
-    "eto_mm": 65.9,
+    "eto_mm": 65.5,
     "consumo_del_cultivo_mm": 6.6,
-    "percolacion_mm": 29.4,
+    "percolacion_mm": 29.5,
     "dias_calculados": 20
   },
   "ultimos_dias": [
@@ -155,17 +155,17 @@
     },
     {
       "fecha": "2026-10-19",
-      "lluvia_mm": 0.0,
-      "eto_mm": 3.05,
-      "consumo_mm": 0.3,
-      "agua_util_mm": 73.6,
-      "porcentaje_agua_util": 99.1,
+      "lluvia_mm": 0.7,
+      "eto_mm": 2.65,
+      "consumo_mm": 0.27,
+      "agua_util_mm": 74.2,
+      "porcentaje_agua_util": 100.0,
       "ndvi": -0.085
     }
   ],
   "origen_de_los_datos": {
     "fuentes_que_fallaron": {
-      "siga": "La estación NH0438 no tiene datos entre 2026-09-30 y 2026-10-19."
+      "siga": "No se pudo consultar el SIGA (https://siga.inta.gob.ar/document/series/NH0438.xls): The read operation timed out"
     }
   },
   "pronostico": {
@@ -176,7 +176,7 @@
       {
         "fecha": "2026-10-20",
         "lluvia_mm": 0.8,
-        "eto_mm": 2.94
+        "eto_mm": 2.92
       },
       {
         "fecha": "2026-10-21",

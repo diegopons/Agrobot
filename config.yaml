@@ -196,57 +196,57 @@ telegram:
 
 suelo:
   # Perfil del lote y agua medida en la calicata de siembra.
-  # Cargado desde la página el 2026-10-05.
+  # Cargado desde la página el 2026-10-19.
   # Con agua_inicial_mm presente, balance.llenado_inicial_pct se
   # ignora en esa capa.
   - prof_hasta_cm: 20
     cc_porcentaje: 26.8
     pmp_porcentaje: 10.5
     densidad_aparente: 1.25
-    agua_inicial_mm: 23.93
+    agua_inicial_mm: 29.26
   - prof_hasta_cm: 40
     cc_porcentaje: 22.8
     pmp_porcentaje: 9.4
     densidad_aparente: 1.25
-    agua_inicial_mm: 25.14
+    agua_inicial_mm: 31.57
   - prof_hasta_cm: 60
     cc_porcentaje: 21.5
     pmp_porcentaje: 9.2
     densidad_aparente: 1.25
-    agua_inicial_mm: 24.62
+    agua_inicial_mm: 27.24
   - prof_hasta_cm: 80
     cc_porcentaje: 21.5
     pmp_porcentaje: 9.2
     densidad_aparente: 1.25
-    agua_inicial_mm: 24.62
+    agua_inicial_mm: 27.24
   - prof_hasta_cm: 100
     cc_porcentaje: 21.5
     pmp_porcentaje: 9.2
     densidad_aparente: 1.25
-    agua_inicial_mm: 23.76
+    agua_inicial_mm: 24.26
   - prof_hasta_cm: 120
     cc_porcentaje: 21.5
     pmp_porcentaje: 9.2
     densidad_aparente: 1.25
-    agua_inicial_mm: 23.75
+    agua_inicial_mm: 24.26
   - prof_hasta_cm: 140
     cc_porcentaje: 21
     pmp_porcentaje: 9.2
     densidad_aparente: 1.25
-    agua_inicial_mm: 22.25
+    agua_inicial_mm: 22.39
   - prof_hasta_cm: 160
     cc_porcentaje: 21
     pmp_porcentaje: 9.2
     densidad_aparente: 1.25
-    agua_inicial_mm: 22.25
+    agua_inicial_mm: 22.39
   - prof_hasta_cm: 180
     cc_porcentaje: 21
     pmp_porcentaje: 9.2
     densidad_aparente: 1.25
-    agua_inicial_mm: 21.95
+    agua_inicial_mm: 20.92
   - prof_hasta_cm: 200
     cc_porcentaje: 21
     pmp_porcentaje: 9.2
     densidad_aparente: 1.25
-    agua_inicial_mm: 21.95
+    agua_inicial_mm: 20.92
 

@@ -140,6 +140,29 @@ cdse:
   # pero queda un aviso en el log: en ese tramo la curva es una suposición.
   max_dias_interpolar: 30
 
+  # Clases de la banda SCL que se aceptan como dato del lote. Es una lista
+  # BLANCA: lo que no esté acá queda afuera del promedio y tampoco cuenta
+  # para el porcentaje de cobertura.
+  #
+  #   0 sin datos           4 vegetación        8 nube, prob. media
+  #   1 saturado/defectuoso 5 suelo desnudo     9 nube, prob. alta
+  #   2 píxel oscuro/sombra 6 AGUA             10 cirros delgados
+  #   3 sombra de nube      7 sin clasificar   11 nieve o hielo
+  #
+  # 4 y 5 son las dos clases que describen un lote: con cultivo y sin
+  # cultivo. Agregar 7 ("sin clasificar") si se ve que el clasificador
+  # descarta demasiado, pero sabiendo que es la clase donde caen los
+  # píxeles raros.
+  scl_validas: [4, 5]
+
+  # Piso de plausibilidad para el NDVI medio del lote. Por debajo de este
+  # valor la fecha se descarta: sobre una superficie agrícola un promedio
+  # negativo no es una medición baja, es un síntoma de que al promedio
+  # entró algo que no es el lote (agua, sombra, píxeles sin dato). Cero es
+  # el único umbral que no puede descartar un dato legítimo: ni el suelo
+  # desnudo más húmedo da negativo.
+  ndvi_minimo_valido: 0.0
+
 # ---------------------------------------------------------------------------
 # Copernicus Climate Data Store (precipitación + ETo vía AgERA5)
 # ---------------------------------------------------------------------------

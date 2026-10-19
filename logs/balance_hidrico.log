@@ -5378,3 +5378,44 @@
 2026-10-19 12:29:50,697 [INFO] src.publicar_estado: Estado publicado en docs/estado_actual.json (2026-10-19, 100 % de agua útil).
 2026-10-19 12:29:51,254 [INFO] src.notificaciones: Notificación de Telegram enviada.
 2026-10-19 12:29:51,255 [INFO] main: Corrida finalizada OK.
+2026-10-19 16:08:15,688 [INFO] main: ========== Nueva corrida de Balance Hídrico ==========
+2026-10-19 16:08:15,689 [INFO] src.aoi: AOI cargado desde GeoJSON: lote.geojson
+2026-10-19 16:08:15,712 [INFO] main: Lote cargado: 92.05 ha. BBox=(-63.872645, -31.729632, -63.861101, -31.719995)
+2026-10-19 16:08:15,713 [WARNING] src.estado: ⚠️  Cambió alguno de los datos de base —lote, fecha de siembra, fuente de clima o perfil de suelo— (huella c33c38c8135aafb7 -> 2d8ebdb901497ec2). El balance acumulado no corresponde: se reinicia desde cero.
+2026-10-19 16:08:15,713 [INFO] src.estado: Se inicializa el balance: AU=40.0 mm, profundidad de raíz=1 cm.
+2026-10-19 16:08:15,713 [WARNING] src.estado: Serie anterior archivada como balance_hidrico_lote20_hasta_20261019-160815.csv (cambió el lote, la siembra, el clima o el perfil de suelo). Se empieza una serie nueva.
+2026-10-19 16:08:15,715 [INFO] main: Procesando rango nuevo: 2026-05-28 -> 2026-10-17
+2026-10-19 16:08:15,715 [INFO] main: Descargando NDVI (Sentinel-2 / CDSE Statistical API)...
+2026-10-19 16:08:17,188 [INFO] src.auth_cdse: Token CDSE obtenido, válido por 1800 s.
+2026-10-19 16:08:19,282 [WARNING] src.ndvi_sentinelhub:   2026-07-27 DESCARTADO: NDVI medio -0.1359 fuera del rango plausible [0.00, 1.00] con 100% de cobertura. Revisá que el polígono cubra solo el lote.
+2026-10-19 16:08:19,282 [WARNING] src.ndvi_sentinelhub:   2026-08-01 DESCARTADO: NDVI medio -0.0684 fuera del rango plausible [0.00, 1.00] con 100% de cobertura. Revisá que el polígono cubra solo el lote.
+2026-10-19 16:08:19,282 [WARNING] src.ndvi_sentinelhub:   2026-08-06 DESCARTADO: NDVI medio -0.0675 fuera del rango plausible [0.00, 1.00] con 100% de cobertura. Revisá que el polígono cubra solo el lote.
+2026-10-19 16:08:19,282 [WARNING] src.ndvi_sentinelhub:   2026-08-16 DESCARTADO: NDVI medio -0.0763 fuera del rango plausible [0.00, 1.00] con 100% de cobertura. Revisá que el polígono cubra solo el lote.
+2026-10-19 16:08:19,282 [WARNING] src.ndvi_sentinelhub:   2026-08-31 DESCARTADO: NDVI medio -0.0802 fuera del rango plausible [0.00, 1.00] con 100% de cobertura. Revisá que el polígono cubra solo el lote.
+2026-10-19 16:08:19,282 [WARNING] src.ndvi_sentinelhub:   2026-09-02 DESCARTADO: NDVI medio -0.0699 fuera del rango plausible [0.00, 1.00] con 100% de cobertura. Revisá que el polígono cubra solo el lote.
+2026-10-19 16:08:19,282 [WARNING] src.ndvi_sentinelhub:   2026-09-15 DESCARTADO: NDVI medio -0.0530 fuera del rango plausible [0.00, 1.00] con 100% de cobertura. Revisá que el polígono cubra solo el lote.
+2026-10-19 16:08:19,282 [WARNING] src.ndvi_sentinelhub:   2026-09-25 DESCARTADO: NDVI medio -0.0693 fuera del rango plausible [0.00, 1.00] con 100% de cobertura. Revisá que el polígono cubra solo el lote.
+2026-10-19 16:08:19,282 [WARNING] src.ndvi_sentinelhub:   2026-10-05 DESCARTADO: NDVI medio -0.0846 fuera del rango plausible [0.00, 1.00] con 100% de cobertura. Revisá que el polígono cubra solo el lote.
+2026-10-19 16:08:19,285 [INFO] src.ndvi_sentinelhub: NDVI: 4 fecha(s) con dato de 22 pasada(s). Descartadas: 0 por cobertura, 9 sin píxeles, 9 fuera de rango.
+2026-10-19 16:08:19,285 [WARNING] src.ndvi_sentinelhub: 9 fecha(s) con NDVI fuera de rango. La causa más frecuente es un polígono que incluye superficie que no es el lote (agua, camino, monte) o que está desplazado respecto del cultivo.
+2026-10-19 16:08:19,286 [INFO] main: NDVI: 4 fechas con imagen utilizable en el rango.
+2026-10-19 16:08:19,287 [INFO] main: Clima: fuentes en orden ['siga', 'openmeteo']
+2026-10-19 16:08:21,138 [INFO] src.clima_siga: SIGA: estación 'INTA - Manfredi (EMC)' (NH0438) a 14.0 km del lote.
+2026-10-19 16:08:40,752 [INFO] src.clima_siga: SIGA NH0438: 16230 días (1969-09-01 a 2014-05-08).
+2026-10-19 16:08:40,764 [WARNING] src.clima: Fuente 'siga' no disponible: La estación NH0438 no tiene datos entre 2026-05-28 y 2026-10-17.
+2026-10-19 16:08:41,521 [INFO] src.clima_openmeteo: Open-Meteo: 143 días (archivo=143). Último dato: 2026-10-17.
+2026-10-19 16:08:41,527 [INFO] src.clima: Clima · openmeteo aportó 143 días de lluvia y 143 de ETo.
+2026-10-19 16:08:41,527 [INFO] main: Clima · origen de los datos — lluvia: openmeteo 143d | ETo: openmeteo 143d
+2026-10-19 16:08:41,527 [WARNING] main: Clima · 'siga' no se pudo usar: La estación NH0438 no tiene datos entre 2026-05-28 y 2026-10-17.
+2026-10-19 16:08:41,532 [WARNING] src.ndvi_sentinelhub: El hueco más largo sin imagen es de 50 días: la interpolación en ese tramo es una suposición amplia.
+2026-10-19 16:08:41,532 [INFO] main: NDVI: 4 observaciones reales, 139 días interpolados, 42 sostenidos al final; hueco mayor entre imágenes: 50 días.
+2026-10-19 16:08:41,628 [INFO] src.estado: CSV actualizado: data/balance_hidrico_lote20.csv (143 filas totales)
+2026-10-19 16:08:41,647 [INFO] src.mapas_ndvi: Generando mosaico de NDVI con 4 fechas...
+2026-10-19 16:08:45,697 [INFO] src.mapas_ndvi: Mosaico guardado en docs/ndvi_mosaico.png (4 fechas).
+2026-10-19 16:08:45,697 [INFO] main: Última fecha procesada: 2026-10-17 | %AU=100.0 | AU real=315.2 mm | NDVI=0.067
+2026-10-19 16:08:46,416 [INFO] src.clima_openmeteo: Pronóstico: 9 días, hasta 2026-10-28. Lluvia esperada: 14.1 mm.
+2026-10-19 16:08:46,421 [INFO] main: Pronóstico: Proyección a 9 días: no cruza el umbral; quedaría en 100 % el 28/10. Lluvia esperada: 14 mm.
+2026-10-19 16:08:46,422 [INFO] main: Riego: reposición total 0.0 mm netos | ajustada 0.0 mm netos (descuenta 0.0 mm hasta 2026-10-22).
+2026-10-19 16:08:46,426 [INFO] src.publicar_estado: Estado publicado en docs/estado_actual.json (2026-10-17, 100 % de agua útil).
+2026-10-19 16:08:46,961 [INFO] src.notificaciones: Notificación de Telegram enviada.
+2026-10-19 16:08:46,962 [INFO] main: Corrida finalizada OK.

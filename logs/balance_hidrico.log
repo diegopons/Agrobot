@@ -5317,3 +5317,34 @@
 2026-10-19 12:13:45,091 [INFO] src.publicar_estado: Estado publicado en docs/estado_actual.json (2026-10-19, 99 % de agua útil).
 2026-10-19 12:13:45,780 [INFO] src.notificaciones: Notificación de Telegram enviada.
 2026-10-19 12:13:45,781 [INFO] main: Corrida finalizada OK.
+2026-10-19 12:17:28,668 [INFO] main: ========== Nueva corrida de Balance Hídrico ==========
+2026-10-19 12:17:28,668 [INFO] main: Parámetros recibidos del formulario: campana.fecha_siembra=2026-09-30, campana.au_real_inicial_mm=60.0, campana.prof_raiz_inicial_cm=40.0, balance.umbral_riego_pct=50.0, telegram.modo=(usar config), telegram.nombre_lote=Pilar 2  - Círculo 3
+2026-10-19 12:17:28,668 [INFO] src.aoi: AOI cargado desde GeoJSON: lote.geojson
+2026-10-19 12:17:28,685 [INFO] main: Lote cargado: 92.05 ha. BBox=(-63.872645, -31.729632, -63.861101, -31.719995)
+2026-10-19 12:17:28,685 [WARNING] src.estado: Se pidió reiniciar el estado: se descarta el balance acumulado.
+2026-10-19 12:17:28,685 [INFO] src.estado: Se inicializa el balance: AU=60.0 mm, profundidad de raíz=40 cm.
+2026-10-19 12:17:28,686 [WARNING] src.estado: Serie anterior archivada como balance_hidrico_lote20_hasta_20261019-121728.csv (se pidió reiniciar). Se empieza una serie nueva.
+2026-10-19 12:17:28,687 [WARNING] main: Se pidió hasta el 2026-10-19, pero AgERA5 suele tener unos 2 días de rezago. Se intentará igual y se recortará hasta donde haya datos.
+2026-10-19 12:17:28,687 [INFO] main: Procesando rango nuevo: 2026-09-30 -> 2026-10-19
+2026-10-19 12:17:28,687 [INFO] main: Descargando NDVI (Sentinel-2 / CDSE Statistical API)...
+2026-10-19 12:17:29,697 [INFO] src.auth_cdse: Token CDSE obtenido, válido por 1800 s.
+2026-10-19 12:17:30,642 [INFO] main: NDVI: 1 fechas con imagen utilizable en el rango.
+2026-10-19 12:17:30,643 [INFO] main: Clima: fuentes en orden ['siga', 'openmeteo']
+2026-10-19 12:17:32,902 [INFO] src.clima_siga: SIGA: estación 'INTA - Manfredi (EMC)' (NH0438) a 14.0 km del lote.
+2026-10-19 12:18:25,146 [INFO] src.clima_siga: SIGA NH0438: 16230 días (1969-09-01 a 2014-05-08).
+2026-10-19 12:18:25,155 [WARNING] src.clima: Fuente 'siga' no disponible: La estación NH0438 no tiene datos entre 2026-09-30 y 2026-10-19.
+2026-10-19 12:18:25,711 [INFO] src.clima_openmeteo: Open-Meteo: 20 días (archivo=20). Último dato: 2026-10-19.
+2026-10-19 12:18:25,715 [INFO] src.clima: Clima · openmeteo aportó 20 días de lluvia y 20 de ETo.
+2026-10-19 12:18:25,715 [INFO] main: Clima · origen de los datos — lluvia: openmeteo 20d | ETo: openmeteo 20d
+2026-10-19 12:18:25,715 [WARNING] main: Clima · 'siga' no se pudo usar: La estación NH0438 no tiene datos entre 2026-09-30 y 2026-10-19.
+2026-10-19 12:18:25,717 [INFO] main: NDVI: 1 observaciones reales, 19 días interpolados, 14 sostenidos al final; hueco mayor entre imágenes: 0 días.
+2026-10-19 12:18:25,723 [INFO] src.estado: CSV actualizado: data/balance_hidrico_lote20.csv (20 filas totales)
+2026-10-19 12:18:25,758 [INFO] src.mapas_ndvi: Generando mosaico de NDVI con 1 fechas...
+2026-10-19 12:18:26,771 [INFO] src.mapas_ndvi: Mosaico guardado en docs/ndvi_mosaico.png (1 fechas).
+2026-10-19 12:18:26,772 [INFO] main: Última fecha procesada: 2026-10-19 | %AU=99.1 | AU real=73.6 mm | NDVI=-0.085
+2026-10-19 12:18:27,392 [INFO] src.clima_openmeteo: Pronóstico: 9 días, hasta 2026-10-28. Lluvia esperada: 16.7 mm.
+2026-10-19 12:18:27,395 [INFO] main: Pronóstico: Proyección a 9 días: no cruza el umbral; quedaría en 100 % el 28/10. Lluvia esperada: 17 mm.
+2026-10-19 12:18:27,396 [INFO] main: Riego: reposición total 0.6 mm netos | ajustada 0.0 mm netos (descuenta 0.6 mm hasta 2026-10-22).
+2026-10-19 12:18:27,398 [INFO] src.publicar_estado: Estado publicado en docs/estado_actual.json (2026-10-19, 99 % de agua útil).
+2026-10-19 12:18:27,916 [INFO] src.notificaciones: Notificación de Telegram enviada.
+2026-10-19 12:18:27,917 [INFO] main: Corrida finalizada OK.

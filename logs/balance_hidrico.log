@@ -5451,3 +5451,35 @@
 2026-10-19 18:24:40,961 [INFO] src.publicar_estado: Estado publicado en docs/estado_actual.json (2026-10-19, 98 % de agua útil).
 2026-10-19 18:24:41,640 [INFO] src.notificaciones: Notificación de Telegram enviada.
 2026-10-19 18:24:41,641 [INFO] main: Corrida finalizada OK.
+2026-10-19 18:27:56,053 [INFO] main: ========== Nueva corrida de Balance Hídrico ==========
+2026-10-19 18:27:56,053 [INFO] main: Parámetros recibidos del formulario: campana.fecha_siembra=2026-09-30, campana.au_real_inicial_mm=60.0, campana.prof_raiz_inicial_cm=40.0, balance.umbral_riego_pct=50.0, telegram.modo=(usar config), telegram.nombre_lote=Pilar 2  - Círculo 3
+2026-10-19 18:27:56,053 [INFO] src.aoi: AOI cargado desde GeoJSON: lote.geojson
+2026-10-19 18:27:56,074 [INFO] main: Lote cargado: 92.05 ha. BBox=(-63.872645, -31.729632, -63.861101, -31.719995)
+2026-10-19 18:27:56,074 [WARNING] src.estado: Se pidió reiniciar el estado: se descarta el balance acumulado.
+2026-10-19 18:27:56,074 [INFO] src.estado: Se inicializa el balance: AU=60.0 mm, profundidad de raíz=40 cm.
+2026-10-19 18:27:56,074 [WARNING] src.estado: Serie anterior archivada como balance_hidrico_lote20_hasta_20261019-182756.csv (se pidió reiniciar). Se empieza una serie nueva.
+2026-10-19 18:27:56,076 [WARNING] main: Se pidió hasta el 2026-10-19, pero AgERA5 suele tener unos 2 días de rezago. Se intentará igual y se recortará hasta donde haya datos.
+2026-10-19 18:27:56,076 [INFO] main: Procesando rango nuevo: 2026-09-30 -> 2026-10-19
+2026-10-19 18:27:56,076 [INFO] main: Descargando NDVI (Sentinel-2 / CDSE Statistical API)...
+2026-10-19 18:27:57,447 [INFO] src.auth_cdse: Token CDSE obtenido, válido por 1800 s.
+2026-10-19 18:27:58,811 [WARNING] src.ndvi_sentinelhub:   2026-10-05 DESCARTADO: NDVI medio -0.0846 fuera del rango plausible [0.00, 1.00] con 100% de cobertura. Revisá que el polígono cubra solo el lote.
+2026-10-19 18:27:58,813 [INFO] src.ndvi_sentinelhub: NDVI: 0 fecha(s) con dato de 3 pasada(s). Descartadas: 0 por cobertura, 2 sin píxeles, 1 fuera de rango.
+2026-10-19 18:27:58,813 [WARNING] src.ndvi_sentinelhub: 1 fecha(s) con NDVI fuera de rango. La causa más frecuente es un polígono que incluye superficie que no es el lote (agua, camino, monte) o que está desplazado respecto del cultivo.
+2026-10-19 18:27:58,814 [INFO] main: NDVI: 0 fechas con imagen utilizable en el rango.
+2026-10-19 18:27:58,815 [INFO] main: Clima: fuentes en orden ['siga', 'openmeteo']
+2026-10-19 18:28:00,809 [INFO] src.clima_siga: SIGA: estación 'INTA - Manfredi (EMC)' (NH0438) a 14.0 km del lote.
+2026-10-19 18:28:35,748 [INFO] src.clima_siga: SIGA NH0438: 16230 días (1969-09-01 a 2014-05-08).
+2026-10-19 18:28:35,758 [WARNING] src.clima: Fuente 'siga' no disponible: La estación NH0438 no tiene datos entre 2026-09-30 y 2026-10-19.
+2026-10-19 18:28:36,389 [INFO] src.clima_openmeteo: Open-Meteo: 20 días (archivo=20). Último dato: 2026-10-19.
+2026-10-19 18:28:36,394 [INFO] src.clima: Clima · openmeteo aportó 20 días de lluvia y 20 de ETo.
+2026-10-19 18:28:36,394 [INFO] main: Clima · origen de los datos — lluvia: openmeteo 20d | ETo: openmeteo 20d
+2026-10-19 18:28:36,394 [WARNING] main: Clima · 'siga' no se pudo usar: La estación NH0438 no tiene datos entre 2026-09-30 y 2026-10-19.
+2026-10-19 18:28:36,398 [INFO] main: NDVI: 0 observaciones reales, 0 días interpolados, 0 sostenidos al final; hueco mayor entre imágenes: 0 días.
+2026-10-19 18:28:36,407 [INFO] src.estado: CSV actualizado: data/balance_hidrico_lote20.csv (20 filas totales)
+2026-10-19 18:28:36,409 [INFO] main: Última fecha procesada: 2026-10-19 | %AU=98.0 | AU real=72.7 mm | NDVI=0.300
+2026-10-19 18:28:36,994 [INFO] src.clima_openmeteo: Pronóstico: 9 días, hasta 2026-10-28. Lluvia esperada: 14.1 mm.
+2026-10-19 18:28:36,999 [INFO] main: Pronóstico: Proyección a 9 días: no cruza el umbral; quedaría en 100 % el 28/10. Lluvia esperada: 14 mm.
+2026-10-19 18:28:36,999 [INFO] main: Riego: reposición total 1.5 mm netos | ajustada 0.0 mm netos (descuenta 1.5 mm hasta 2026-10-22).
+2026-10-19 18:28:37,005 [INFO] src.publicar_estado: Estado publicado en docs/estado_actual.json (2026-10-19, 98 % de agua útil).
+2026-10-19 18:28:37,604 [INFO] src.notificaciones: Notificación de Telegram enviada.
+2026-10-19 18:28:37,605 [INFO] main: Corrida finalizada OK.

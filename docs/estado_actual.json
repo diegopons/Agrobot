@@ -1,50 +1,41 @@
 {
-  "generado_utc": "2026-10-20T14:04:15Z",
+  "generado_utc": "2026-10-21T14:19:23Z",
   "lote": {
     "nombre": "lote_6",
     "area_ha": 92.05
   },
   "campana": {
     "fecha_siembra": "2026-05-28",
-    "dias_desde_siembra": 143
+    "dias_desde_siembra": 144
   },
   "estado_actual": {
-    "fecha_del_dato": "2026-10-18",
+    "fecha_del_dato": "2026-10-19",
     "dias_de_atraso": 2,
-    "agua_util_mm": 314.9,
+    "agua_util_mm": 315.2,
     "agua_util_maxima_mm": 315.2,
-    "porcentaje_agua_util": 99.9,
+    "porcentaje_agua_util": 100.0,
     "condicion": "cómodo",
     "umbral_de_riego_pct": 50.0,
     "necesita_riego": false,
-    "falta_para_capacidad_de_campo_mm": 0.3,
+    "falta_para_capacidad_de_campo_mm": 0.0,
     "riego_sugerido_neto_mm": 0.0,
     "riego_sugerido_bruto_mm": 0.0,
     "eficiencia_de_aplicacion": 0.85,
     "riego_ajustado_por_pronostico": null,
     "ndvi": 0.067,
     "profundidad_raiz_cm": 200.0,
-    "consumo_del_dia_mm": 0.33
+    "consumo_del_dia_mm": 0.28
   },
   "acumulados_de_campana": {
-    "lluvia_mm": 156.7,
-    "lluvia_efectiva_mm": 146.7,
+    "lluvia_mm": 157.7,
+    "lluvia_efectiva_mm": 147.7,
     "riego_aplicado_mm": 0.0,
-    "eto_mm": 362.4,
-    "consumo_del_cultivo_mm": 36.3,
-    "percolacion_mm": 26.7,
-    "dias_calculados": 144
+    "eto_mm": 365.1,
+    "consumo_del_cultivo_mm": 36.6,
+    "percolacion_mm": 27.1,
+    "dias_calculados": 145
   },
   "ultimos_dias": [
-    {
-      "fecha": "2026-10-05",
-      "lluvia_mm": 0.0,
-      "eto_mm": 4.87,
-      "consumo_mm": 0.49,
-      "agua_util_mm": 287.4,
-      "porcentaje_agua_util": 91.2,
-      "ndvi": 0.067
-    },
     {
       "fecha": "2026-10-06",
       "lluvia_mm": 0.5,
@@ -161,78 +152,87 @@
       "agua_util_mm": 314.9,
       "porcentaje_agua_util": 99.9,
       "ndvi": 0.067
+    },
+    {
+      "fecha": "2026-10-19",
+      "lluvia_mm": 1.0,
+      "eto_mm": 2.77,
+      "consumo_mm": 0.28,
+      "agua_util_mm": 315.2,
+      "porcentaje_agua_util": 100.0,
+      "ndvi": 0.067
     }
   ],
   "origen_de_los_datos": {
     "fuentes_que_fallaron": {
-      "siga": "La estación NH0438 no tiene datos entre 2026-05-28 y 2026-10-18."
+      "siga": "La estación NH0438 no tiene datos entre 2026-10-19 y 2026-10-19."
     }
   },
   "pronostico": {
-    "resumen": "Proyección a 9 días: no cruza el umbral; quedaría en 100 % el 29/10. Lluvia esperada: 19 mm.",
+    "resumen": "Proyección a 9 días: no cruza el umbral; quedaría en 100 % el 30/10. Lluvia esperada: 24 mm.",
     "dias": 9,
-    "lluvia_esperada_mm": 19.0,
+    "lluvia_esperada_mm": 24.5,
     "por_dia": [
       {
-        "fecha": "2026-10-21",
-        "lluvia_mm": 0.0,
-        "eto_mm": 4.35
-      },
-      {
         "fecha": "2026-10-22",
-        "lluvia_mm": 3.1,
-        "eto_mm": 2.43
+        "lluvia_mm": 4.0,
+        "eto_mm": 2.92
       },
       {
         "fecha": "2026-10-23",
-        "lluvia_mm": 6.8,
-        "eto_mm": 2.82
+        "lluvia_mm": 7.6,
+        "eto_mm": 2.55
       },
       {
         "fecha": "2026-10-24",
-        "lluvia_mm": 0.1,
-        "eto_mm": 2.95
+        "lluvia_mm": 0.3,
+        "eto_mm": 2.61
       },
       {
         "fecha": "2026-10-25",
-        "lluvia_mm": 3.6,
-        "eto_mm": 3.53
+        "lluvia_mm": 0.6,
+        "eto_mm": 4.21
       },
       {
         "fecha": "2026-10-26",
-        "lluvia_mm": 1.8,
-        "eto_mm": 2.51
+        "lluvia_mm": 0.0,
+        "eto_mm": 3.65
       },
       {
         "fecha": "2026-10-27",
-        "lluvia_mm": 2.4,
-        "eto_mm": 4.38
+        "lluvia_mm": 3.6,
+        "eto_mm": 1.61
       },
       {
         "fecha": "2026-10-28",
-        "lluvia_mm": 0.8,
-        "eto_mm": 3.61
+        "lluvia_mm": 4.2,
+        "eto_mm": 3.93
       },
       {
         "fecha": "2026-10-29",
-        "lluvia_mm": 0.4,
-        "eto_mm": 4.67
+        "lluvia_mm": 3.6,
+        "eto_mm": 4.36
+      },
+      {
+        "fecha": "2026-10-30",
+        "lluvia_mm": 0.6,
+        "eto_mm": 4.89
       }
     ],
     "proxima_lluvia": {
       "fecha": "2026-10-23",
-      "en_dias": 3,
-      "mm": 6.8
+      "en_dias": 2,
+      "mm": 7.6
     }
   },
   "calidad_ndvi": {
-    "fechas_con_dato": 4,
+    "fechas_con_dato": 0,
     "descartadas_por_cobertura": 0,
-    "descartadas_fuera_de_rango": 9,
+    "descartadas_fuera_de_rango": 0,
     "ndvi_previo_descartado": null
   },
   "advertencias": [
-    "9 fecha(s) de Sentinel-2 se descartaron por NDVI medio fuera del rango plausible: el polígono puede incluir superficie que no es el lote (agua, camino, monte) o estar desplazado. Conviene revisarlo antes de usar la estimación.",
+    "INCONSISTENTE: en este tramo no quedó ninguna fecha con NDVI válido. La curva se sostiene sobre supuestos, no sobre observaciones: no responder sobre el estado del cultivo.",
     "Es una estimación de apoyo: no reemplaza la recorrida del lote ni una calicata."
   ]
 }

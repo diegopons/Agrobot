@@ -1,50 +1,41 @@
 {
-  "generado_utc": "2026-10-23T14:01:42Z",
+  "generado_utc": "2026-10-24T13:05:17Z",
   "lote": {
     "nombre": "lote_6",
     "area_ha": 92.05
   },
   "campana": {
     "fecha_siembra": "2026-05-28",
-    "dias_desde_siembra": 146
+    "dias_desde_siembra": 147
   },
   "estado_actual": {
-    "fecha_del_dato": "2026-10-21",
+    "fecha_del_dato": "2026-10-22",
     "dias_de_atraso": 2,
-    "agua_util_mm": 314.7,
+    "agua_util_mm": 315.2,
     "agua_util_maxima_mm": 315.2,
-    "porcentaje_agua_util": 99.8,
+    "porcentaje_agua_util": 100.0,
     "condicion": "cómodo",
     "umbral_de_riego_pct": 50.0,
     "necesita_riego": false,
-    "falta_para_capacidad_de_campo_mm": 0.5,
+    "falta_para_capacidad_de_campo_mm": 0.0,
     "riego_sugerido_neto_mm": 0.0,
     "riego_sugerido_bruto_mm": 0.0,
     "eficiencia_de_aplicacion": 0.85,
     "riego_ajustado_por_pronostico": null,
     "ndvi": 0.067,
     "profundidad_raiz_cm": 200.0,
-    "consumo_del_dia_mm": 0.53
+    "consumo_del_dia_mm": 0.4
   },
   "acumulados_de_campana": {
-    "lluvia_mm": 160.0,
-    "lluvia_efectiva_mm": 150.0,
+    "lluvia_mm": 168.7,
+    "lluvia_efectiva_mm": 158.7,
     "riego_aplicado_mm": 0.0,
-    "eto_mm": 373.9,
-    "consumo_del_cultivo_mm": 37.5,
-    "percolacion_mm": 29.0,
-    "dias_calculados": 147
+    "eto_mm": 377.8,
+    "consumo_del_cultivo_mm": 37.9,
+    "percolacion_mm": 36.8,
+    "dias_calculados": 148
   },
   "ultimos_dias": [
-    {
-      "fecha": "2026-10-08",
-      "lluvia_mm": 1.8,
-      "eto_mm": 2.87,
-      "consumo_mm": 0.29,
-      "agua_util_mm": 298.3,
-      "porcentaje_agua_util": 94.6,
-      "ndvi": 0.067
-    },
     {
       "fecha": "2026-10-09",
       "lluvia_mm": 3.9,
@@ -161,64 +152,78 @@
       "agua_util_mm": 314.7,
       "porcentaje_agua_util": 99.8,
       "ndvi": 0.067
+    },
+    {
+      "fecha": "2026-10-22",
+      "lluvia_mm": 8.7,
+      "eto_mm": 3.96,
+      "consumo_mm": 0.4,
+      "agua_util_mm": 315.2,
+      "porcentaje_agua_util": 100.0,
+      "ndvi": 0.067
     }
   ],
   "origen_de_los_datos": {
     "fuentes_que_fallaron": {
-      "siga": "La estación NH0438 no tiene datos entre 2026-10-21 y 2026-10-21."
+      "siga": "La estación NH0438 no tiene datos entre 2026-10-22 y 2026-10-22."
     }
   },
   "pronostico": {
-    "resumen": "Proyección a 9 días: no cruza el umbral; quedaría en 100 % el 01/11. Lluvia esperada: 6 mm.",
+    "resumen": "Proyección a 9 días: no cruza el umbral; quedaría en 100 % el 02/11. Lluvia esperada: 43 mm.",
     "dias": 9,
-    "lluvia_esperada_mm": 6.1,
+    "lluvia_esperada_mm": 43.1,
     "por_dia": [
       {
-        "fecha": "2026-10-24",
-        "lluvia_mm": 0.7,
-        "eto_mm": 3.78
-      },
-      {
         "fecha": "2026-10-25",
-        "lluvia_mm": 0.5,
-        "eto_mm": 3.73
+        "lluvia_mm": 0.2,
+        "eto_mm": 3.54
       },
       {
         "fecha": "2026-10-26",
-        "lluvia_mm": 0.4,
-        "eto_mm": 3.09
+        "lluvia_mm": 0.2,
+        "eto_mm": 3.27
       },
       {
         "fecha": "2026-10-27",
-        "lluvia_mm": 3.3,
-        "eto_mm": 1.74
+        "lluvia_mm": 3.9,
+        "eto_mm": 1.86
       },
       {
         "fecha": "2026-10-28",
-        "lluvia_mm": 0.0,
-        "eto_mm": 3.34
+        "lluvia_mm": 1.3,
+        "eto_mm": 3.64
       },
       {
         "fecha": "2026-10-29",
-        "lluvia_mm": 0.0,
-        "eto_mm": 5.01
+        "lluvia_mm": 0.9,
+        "eto_mm": 4.31
       },
       {
         "fecha": "2026-10-30",
-        "lluvia_mm": 0.0,
-        "eto_mm": 5.45
+        "lluvia_mm": 0.6,
+        "eto_mm": 5.06
       },
       {
         "fecha": "2026-10-31",
         "lluvia_mm": 0.0,
-        "eto_mm": 5.72
+        "eto_mm": 5.16
       },
       {
         "fecha": "2026-11-01",
-        "lluvia_mm": 1.2,
-        "eto_mm": 5.06
+        "lluvia_mm": 17.2,
+        "eto_mm": 3.8
+      },
+      {
+        "fecha": "2026-11-02",
+        "lluvia_mm": 18.8,
+        "eto_mm": 2.98
       }
-    ]
+    ],
+    "proxima_lluvia": {
+      "fecha": "2026-11-01",
+      "en_dias": 8,
+      "mm": 17.2
+    }
   },
   "calidad_ndvi": {
     "fechas_con_dato": 0,

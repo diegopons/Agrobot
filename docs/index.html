@@ -273,20 +273,54 @@
 #pronostico .pron-mm{font-size:.72rem;color:var(--tinta);display:block;line-height:1.1}
 #pronostico .pron-fecha{font-size:.68rem;color:var(--gris);display:block}
 #pronostico .pron-pie{margin:8px 0 0;font-size:.76rem;color:var(--gris)}
+
+/* ---- ingreso y selector de lotes ---- */
+.login{max-width:440px;margin:12vh auto 0;background:var(--papel);
+  border:1px solid var(--linea);padding:32px 28px}
+.login h1{font-size:26px;font-weight:800;letter-spacing:-.02em;margin:0 0 6px}
+.barra-lotes{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.barra-lotes select{font-family:inherit;font-size:15px;font-weight:600;padding:8px 10px;
+  border:1px solid var(--tinta);background:#fff;color:var(--tinta);max-width:260px}
+button.chico{display:inline-block;width:auto;padding:8px 12px;font-size:13.5px}
+.mal{color:var(--critico)}
 </style>
 </head>
 <body>
 <div class="envoltorio">
 
+  <!-- ======================= INGRESO ======================= -->
+  <div id="pantalla-login" class="login oculto">
+    <h1>Balance hídrico</h1>
+    <p class="subtitulo">Ingresá con tu correo. Te mandamos un enlace para entrar, sin contraseña.
+      Cada cuenta ve solo sus lotes.</p>
+    <form id="form-login">
+      <div class="campo">
+        <label for="f-email">Correo electrónico</label>
+        <input type="email" id="f-email" required autocomplete="email">
+      </div>
+      <button class="principal" type="submit" style="margin-top:14px">Enviarme el enlace</button>
+    </form>
+    <div id="aviso-login" class="aviso oculto"></div>
+  </div>
+
+  <div id="app" class="oculto">
+
   <header class="cabecera">
-    <h1>Balance hídrico — <span id="titulo-lote">Lote 20</span></h1>
-    <div class="meta" id="meta">Cargando…</div>
+    <h1>Balance hídrico — <span id="titulo-lote">…</span></h1>
+    <div class="barra-lotes">
+      <select id="sel-lote" aria-label="Lote"></select>
+      <button id="btn-nuevo" class="chico">+ Nuevo lote</button>
+      <span class="meta" id="usuario-email"></span>
+      <button id="btn-salir" class="chico">Salir</button>
+    </div>
+    <div class="meta" id="meta" style="flex-basis:100%">Cargando…</div>
   </header>
 
   <nav class="secciones" role="tablist">
     <button role="tab" aria-selected="true"  data-seccion="estado">Estado</button>
     <button role="tab" aria-selected="false" data-seccion="lote">Lote</button>
-    <button role="tab" aria-selected="false" data-seccion="correr">Parámetros y ejecución</button>
+    <button role="tab" aria-selected="false" data-seccion="correr">Parámetros</button>
+    <button role="tab" aria-selected="false" data-seccion="cuenta">Cuenta</button>
   </nav>
 
   <!-- ======================= ESTADO ======================= -->
@@ -295,8 +329,7 @@
 
     <div id="sin-datos" class="aviso oculto">
       <strong>Todavía no hay resultados.</strong>
-      El tablero se llena cuando el sistema procesa su primer día con datos.
-      Podés lanzarlo desde la pestaña «Parámetros y ejecución».
+      <span id="sin-datos-texto"></span>
     </div>
 
     <main id="contenido" class="oculto">
@@ -421,10 +454,15 @@
   <!-- ================ PARÁMETROS Y EJECUCIÓN ================ -->
   <section class="seccion" id="s-correr">
   <div class="panel" >
-    <h2>Parámetros de inicio</h2>
-    <p class="subtitulo">Los que dejes vacíos se toman de la configuración guardada</p>
+    <h2>Parámetros del lote</h2>
+    <p class="subtitulo" id="estado-corrida"></p>
 
     <div class="campos">
+      <div class="campo">
+        <label for="f-nombre">Nombre del lote</label>
+        <input type="text" id="f-nombre" placeholder="Lote 20">
+        <span class="pista">Aparece en el aviso de Telegram y es como lo nombrás al bot</span>
+      </div>
       <div class="campo">
         <label for="f-siembra">Fecha de siembra</label>
         <input type="date" id="f-siembra">
@@ -438,12 +476,7 @@
       </div>
       <div class="campo">
         <label for="f-raiz">Profundidad de raíz inicial (cm)</label>
-        <input type="number" id="f-raiz" step="1" min="0" placeholder="10">
-      </div>
-      <div class="campo">
-        <label for="f-fin">Calcular hasta</label>
-        <input type="date" id="f-fin">
-        <span class="pista">Vacío = hasta donde lleguen los datos. AgERA5 publica con unos 10 días de atraso</span>
+        <input type="number" id="f-raiz" step="1" min="0" placeholder="1">
       </div>
       <div class="campo">
         <label for="f-umbral">Umbral de riego (% de agua útil)</label>
@@ -451,41 +484,33 @@
         <span class="pista">Por debajo de este valor se dispara la alerta</span>
       </div>
       <div class="campo">
-        <label for="f-nombre">Nombre del lote</label>
-        <input type="text" id="f-nombre" placeholder="Lote 20">
-        <span class="pista">Aparece en el aviso de Telegram</span>
+        <label for="f-eficiencia">Eficiencia de aplicación del riego</label>
+        <input type="number" id="f-eficiencia" step="0.01" min="0.1" max="1" placeholder="0.85">
+        <span class="pista">0,85 = pivote en buenas condiciones. Surcos o aspersión con viento, bastante menos</span>
       </div>
       <div class="campo">
         <label for="f-modo">Cuándo avisar por Telegram</label>
         <select id="f-modo">
-          <option value="">(usar config)</option>
           <option value="cruce">Al cruzar el umbral hacia abajo</option>
           <option value="deficit">Todos los días en déficit</option>
-          <option value="siempre">En cada corrida</option>
+          <option value="siempre">Todos los días</option>
+          <option value="nunca">Nunca</option>
         </select>
       </div>
     </div>
 
     <label class="casilla" style="margin-top:18px">
-      <input type="checkbox" id="f-hasta-hoy">
-      <span>Calcular hasta hoy.
-        <span style="color:var(--tinta-suave)">Pide hasta la fecha de ejecución. Los días
-        que AgERA5 todavía no publicó quedan fuera y se incorporan en la corrida siguiente.</span></span>
-    </label>
-
-    <label class="casilla" style="margin-top:12px">
-      <input type="checkbox" id="f-resumen">
-      <span>Enviar el resumen por Telegram al terminar.
-        <span style="color:var(--tinta-suave)">Aunque no haya días nuevos y aunque el
-        modo de aviso no corresponda. El mensaje sale desde el servidor: el token del
-        bot no pasa por el navegador.</span></span>
+      <input type="checkbox" id="f-activo" checked>
+      <span>Calcular este lote.
+        <span style="color:var(--tinta-suave)">Destildalo para pausarlo sin perder la serie
+        (por ejemplo, después de la cosecha).</span></span>
     </label>
 
     <label class="casilla" style="margin-top:12px">
       <input type="checkbox" id="f-reiniciar">
-      <span>Reiniciar el balance desde cero.
-        <span style="color:var(--tinta-suave)">Si cambiaste el lote o la fecha de siembra,
-        el reinicio ocurre solo: esta casilla es para forzarlo en otros casos.</span></span>
+      <span>Recalcular desde la siembra.
+        <span style="color:var(--tinta-suave)">Si cambiaste el lote, la fecha de siembra o la
+        calicata, el recálculo ocurre solo: esta casilla es para forzarlo en otros casos.</span></span>
     </label>
   </div>
 
@@ -551,73 +576,77 @@
       </div>
     </details>
 
-    <div class="acciones" style="margin-top:18px;max-width:520px">
-      <button id="btn-calicata" class="principal">Guardar la calicata en config.yaml</button>
-    </div>
-
     <div class="aviso" style="margin-top:16px">
-      Guardar la calicata cambia el balance desde el primer día, así que la próxima
-      corrida aparta la serie actual en un archivo con fecha y recalcula desde la
-      siembra. Es el comportamiento correcto: mezclar capas viejas con capas nuevas
-      daría un escalón, no una evolución.
+      La calicata se guarda junto con el lote, con el botón de abajo. Cambiarla modifica el
+      balance desde el primer día, así que la próxima corrida archiva la serie actual y
+      recalcula desde la siembra. Es el comportamiento correcto: mezclar capas viejas con
+      capas nuevas daría un escalón, no una evolución.
     </div>
   </div>
 
   <div class="panel" style="margin-top:22px">
-    <h2>Guardar y ejecutar</h2>
-    <p class="subtitulo">Escribe el lote en el repositorio y lanza una corrida</p>
+    <h2>Guardar</h2>
+    <p class="subtitulo">Guarda el polígono, los parámetros y la calicata del lote</p>
 
-    <div class="campo" style="max-width:520px;margin-bottom:16px">
-      <label for="f-repo">Repositorio</label>
-      <input type="text" id="f-repo" placeholder="usuario/repositorio">
-      <span class="pista">Se detecta solo desde la dirección de la página. Corregilo si no coincide.</span>
-    </div>
-
-    <div class="campo" style="max-width:520px">
-      <label for="f-token">Token de GitHub</label>
-      <input type="password" id="f-token" placeholder="github_pat_...">
-      <span class="pista">
-        Token <em>fine-grained</em>, limitado a este repositorio, con permisos
-        <strong>Contents</strong> y <strong>Actions</strong> en lectura y escritura.
-        Se usa solo desde tu navegador: no viaja a ningún otro lado ni queda en el repositorio.
-      </span>
-    </div>
-
-    <label class="casilla" style="margin-top:14px">
-      <input type="checkbox" id="f-recordar">
-      <span>Recordarlo en este navegador.
-        <span style="color:var(--tinta-suave)">Cómodo en tu máquina; evitalo en una
-        compartida. Si no lo tildás, se olvida al cerrar la pestaña.</span></span>
-    </label>
-
-    <div class="acciones" style="margin-top:18px;max-width:520px">
-      <button id="btn-guardar" class="principal" disabled>Guardar lote y ejecutar</button>
-      <button id="btn-defaults">Guardar parámetros como predeterminados</button>
-      <button id="btn-olvidar">Olvidar el token guardado</button>
+    <div class="acciones" style="margin-top:6px;max-width:520px">
+      <button id="btn-guardar" class="principal" disabled>Guardar lote</button>
+      <button id="btn-borrar" disabled>Borrar lote</button>
     </div>
 
     <div class="registro" id="registro"></div>
 
     <div class="aviso" style="margin-top:16px">
-      Cambiar el lote o la fecha de siembra invalida el balance acumulado: el agua útil, la
-      profundidad de raíz y la serie corresponden a otro cálculo. El sistema lo detecta solo,
-      aparta la serie anterior en un archivo con fecha (no se pierde) y empieza una nueva.
+      El sistema calcula todos los lotes una vez por día, y cada hora revisa los lotes nuevos
+      o modificados. Cambiar el polígono, la fecha de siembra o la calicata invalida el
+      balance acumulado: el sistema lo detecta solo, archiva la serie anterior (no se pierde)
+      y recalcula desde la siembra.
     </div>
   </div>
 
   </section>
 
+  <!-- ======================= CUENTA ======================= -->
+  <section class="seccion" id="s-cuenta">
+    <div class="panel">
+      <h2>Avisos y consultas por Telegram</h2>
+      <p class="subtitulo">Vinculá tu Telegram para recibir los avisos de riego de tus lotes
+        y preguntarle al bot por ellos. El bot solo responde sobre los lotes de tu cuenta.</p>
+      <div id="tg-estado" class="aviso"></div>
+      <div class="acciones" style="max-width:520px;margin-top:14px">
+        <button id="btn-codigo" class="principal">Vincular Telegram</button>
+        <button id="btn-desvincular" disabled>Desvincular</button>
+      </div>
+      <div id="tg-codigo" class="aviso oculto"></div>
+    </div>
+
+    <div class="panel" style="margin-top:22px">
+      <h2>Tu cuenta</h2>
+      <div class="campo" style="max-width:520px">
+        <label for="f-mi-nombre">Nombre</label>
+        <input type="text" id="f-mi-nombre">
+        <span class="pista">Con este nombre te saluda el bot</span>
+      </div>
+      <div class="acciones" style="max-width:520px;margin-top:14px">
+        <button id="btn-mi-nombre">Guardar nombre</button>
+        <button id="btn-salir2">Cerrar sesión</button>
+      </div>
+    </div>
+  </section>
+
   <div class="pie">
     Las coordenadas se expresan en latitud y longitud (EPSG:4326). La superficie se calcula
     sobre el elipsoide WGS84. NDVI de Sentinel-2 (Copernicus Data Space); lluvia y
-    evapotranspiración de AgERA5 (Climate Data Store).
+    evapotranspiración de la estación del INTA más cercana, completadas con Open-Meteo.
   </div>
+  </div><!-- #app -->
 </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
 <script src="https://unpkg.com/@tmcw/togeojson@5.8.1/dist/togeojson.umd.js"></script>
 <script src="https://unpkg.com/shpjs@6.1.0/dist/shp.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="config.js"></script>
 <script>
 // ===================== navegación entre secciones =====================
 const botonesNav = document.querySelectorAll('nav.secciones button');
@@ -641,9 +670,9 @@ botonesNav.forEach(b => b.addEventListener('click', () => {
 
 <script>
 // ===================== configuración =====================
-const RUTA_CSV = "balance_hidrico_lote20.csv";
-const UMBRAL_RIEGO = 50;          // % de agua útil que dispara la alerta
-const EFICIENCIA = 0.85;          // eficiencia de aplicación del riego
+// Umbral y eficiencia son de cada lote: se toman de su fila al elegirlo
+let UMBRAL_RIEGO = 50;            // % de agua útil que dispara la alerta
+let EFICIENCIA = 0.85;            // eficiencia de aplicación del riego
 const PROF_MAX = 200;             // cm
 
 const ESCALA = [
@@ -674,34 +703,20 @@ function parsearCSV(texto){
 }
 
 // ===================== pronóstico =====================
-// Sale de estado_actual.json, que publica la misma corrida que el CSV. El total
-// de lluvia esperada no alcanza para decidir un riego: lo que importa es cuándo
-// llueve, así que se muestra día por día.
-// El JSON y el CSV se piden por separado y pueden llegar en cualquier orden,
-// así que cada uno guarda lo suyo y vuelve a pintar la recomendación con lo
-// que haya disponible. Sin el JSON el tablero sigue funcionando: muestra la
-// lámina de reposición total y nada más.
+// Sale del resumen del lote (resumen_lote en Supabase), que publica la misma
+// corrida que la serie. El total de lluvia esperada no alcanza para decidir un
+// riego: lo que importa es cuándo llueve, así que se muestra día por día.
+// Sin resumen el tablero sigue funcionando: muestra la lámina de reposición
+// total y nada más.
 let ESTADO_PUB = null;
 let ULTIMO_CSV = null;
 
-fetch("estado_actual.json", {cache:"no-store"})
-  .then(r => r.ok ? r.json() : Promise.reject())
-  .then(est => {
-    ESTADO_PUB = est;
-    pintarRecomendacion();
-
-    // El nombre del lote vive en el config, no en el HTML: si está cargado
-    // "lote_6" el título no puede seguir diciendo "Lote 20".
-    if(est.lote && est.lote.nombre){
-      const n = String(est.lote.nombre).replace(/_/g, " ");
-      document.getElementById("titulo-lote").textContent =
-        n.charAt(0).toUpperCase() + n.slice(1);
-    }
-
-    const p = est.pronostico;
+function pintarPronostico(est){
+    const cont = document.getElementById("pronostico");
+    cont.classList.add("oculto");
+    const p = est && est.pronostico;
     if(!p || !p.por_dia || !p.por_dia.length) return;
 
-    const cont = document.getElementById("pronostico");
     const maxMm = Math.max(1, ...p.por_dia.map(d => d.lluvia_mm));
     const barras = p.por_dia.map(d => {
       const alto = Math.round(6 + (d.lluvia_mm / maxMm) * 54);
@@ -730,21 +745,7 @@ fetch("estado_actual.json", {cache:"no-store"})
          ${fechaCorta(new Date(p.por_dia[p.por_dia.length-1].fecha + "T00:00:00"))}).
         Total: ${num(p.lluvia_esperada_mm,1)} mm. Fuente: Open-Meteo.</p>`;
     cont.classList.remove("oculto");
-  })
-  .catch(() => { /* sin pronóstico: el tablero funciona igual */ });
-
-fetch(RUTA_CSV, {cache:"no-store"})
-  .then(r => { if(!r.ok) throw new Error("sin archivo"); return r.text(); })
-  .then(txt => {
-    const datos = parsearCSV(txt);
-    if(!datos.length) throw new Error("vacío");
-    dibujarTodo(datos);
-  })
-  .catch(() => {
-    document.getElementById("cargando").classList.add("oculto");
-    document.getElementById("sin-datos").classList.remove("oculto");
-    document.getElementById("meta").textContent = "Sin datos aún";
-  });
+}
 
 // ===================== recomendación de riego =====================
 // Dos números, no uno. El de reposición total contesta "cuánta agua le falta
@@ -838,7 +839,8 @@ function dibujarTodo(datos){
 
   document.getElementById("pie-actualizado").textContent =
     "Último día procesado: " + fechaLarga(ultimo.fecha) +
-    ". NDVI de Sentinel-2 (Copernicus); lluvia y evapotranspiración de AgERA5.";
+    ". NDVI de Sentinel-2 (Copernicus); lluvia y evapotranspiración de la estación " +
+    "del INTA y Open-Meteo.";
 }
 
 // ---------- perfil de suelo ----------
@@ -1175,7 +1177,7 @@ function actualizar(geom){
       'cosa que a esta escala difícilmente se cumpla.', 'error');
   } else {
     mostrarAviso('Lote listo: <strong>' + ha.toFixed(2) + ' ha</strong>. ' +
-      'Copiá el GeoJSON y seguí los pasos de abajo.', 'ok');
+      'Guardalo desde la pestaña «Parámetros».', 'ok');
   }
 }
 
@@ -1308,195 +1310,6 @@ document.getElementById('btn-descargar').addEventListener('click', () => {
   a.click();
   URL.revokeObjectURL(a.href);
 });
-
-// ===================== guardado en el repositorio =====================
-// El repositorio se deduce de la propia URL de GitHub Pages
-// (usuario.github.io/repo/), así que la página sigue funcionando si se
-// renombra el repo o se publica desde otra cuenta.
-const RAMA = 'main';
-const WORKFLOW = 'balance_hidrico.yml';
-
-// Detecta usuario/repositorio desde una URL de GitHub Pages
-// (usuario.github.io/repositorio/). Fuera de ahí no hay nada que deducir,
-// así que el campo queda vacío y lo completa la persona.
-function detectarRepo(){
-  if(!location.hostname.endsWith('github.io')) return '';
-  const usuario = location.hostname.split('.')[0];
-  const partes = location.pathname.split('/').filter(Boolean);
-  // Un sitio de usuario (usuario.github.io) vive en el repo usuario.github.io
-  const repo = partes.length ? partes[0] : location.hostname;
-  return usuario + '/' + repo;
-}
-
-function leerRepo(){
-  const v = (document.getElementById('f-repo').value || '').trim().replace(/^\/+|\/+$/g,'');
-  const partes = v.split('/');
-  if(partes.length !== 2 || !partes[0] || !partes[1]) return null;
-  return {propietario: partes[0], nombre: partes[1], rama: RAMA, workflow: WORKFLOW};
-}
-
-const API = 'https://api.github.com';
-const CLAVE_TOKEN = 'bh_token_github';
-
-// --- token: sessionStorage por defecto, localStorage solo si lo pide ---
-function leerToken(){
-  try { return localStorage.getItem(CLAVE_TOKEN) || sessionStorage.getItem(CLAVE_TOKEN) || ''; }
-  catch { return ''; }
-}
-function guardarToken(valor, recordar){
-  try {
-    sessionStorage.setItem(CLAVE_TOKEN, valor);
-    if(recordar) localStorage.setItem(CLAVE_TOKEN, valor);
-    else localStorage.removeItem(CLAVE_TOKEN);
-  } catch {}
-}
-function olvidarToken(){
-  try { localStorage.removeItem(CLAVE_TOKEN); sessionStorage.removeItem(CLAVE_TOKEN); } catch {}
-}
-
-// --- registro visible de lo que va pasando ---
-const registro = document.getElementById('registro');
-function anotar(texto, clase='info'){
-  registro.classList.add('visible');
-  const linea = document.createElement('div');
-  linea.className = 'l-' + clase;
-  linea.textContent = texto;
-  registro.appendChild(linea);
-  registro.scrollTop = registro.scrollHeight;
-}
-
-async function api(ruta, token, opciones = {}){
-  const r = await fetch(API + ruta, {
-    ...opciones,
-    headers: {
-      'Authorization': 'Bearer ' + token,
-      'Accept': 'application/vnd.github+json',
-      'X-GitHub-Api-Version': '2022-11-28',
-      ...(opciones.body ? {'Content-Type':'application/json'} : {})
-    }
-  });
-  if(!r.ok){
-    let detalle = '';
-    try { detalle = (await r.json()).message || ''; } catch {}
-    const err = new Error(r.status + (detalle ? ' — ' + detalle : ''));
-    err.status = r.status;
-    throw err;
-  }
-  return r.status === 204 ? null : r.json();
-}
-
-// Un commit con los dos archivos a la vez, vía la API de árboles de Git.
-// Hacerlo en un solo commit evita quedar a mitad de camino si algo falla.
-//
-// El commit se arma en cuatro llamadas: leer la punta de la rama, crear el
-// árbol, crear el commit y mover la rama. Entre la primera y la última pueden
-// pasar varios segundos, y si en ese rato la corrida automática de GitHub
-// Actions escribe sus resultados, la rama ya avanzó y mover la punta falla con
-// "422 — Update is not a fast forward". No es un conflicto de contenido: los
-// archivos son distintos. Alcanza con volver a leer la punta y rehacerlo.
-async function commitearArchivos(token, repo, archivos, mensaje, intentos = 5){
-  let ultimo;
-  for(let i = 0; i < intentos; i++){
-    try {
-      return await commitearUnaVez(token, repo, archivos, mensaje);
-    } catch(err){
-      ultimo = err;
-      if(err.status !== 422 && err.status !== 409) throw err;
-      if(i < intentos - 1){
-        anotar(`La rama avanzó mientras se escribía; reintento ${i + 1} de ${intentos - 1}…`);
-        await new Promise(r => setTimeout(r, 900 * (i + 1)));
-      }
-    }
-  }
-  throw ultimo;
-}
-
-async function commitearUnaVez(token, repo, archivos, mensaje){
-  const base = `/repos/${repo.propietario}/${repo.nombre}`;
-
-  const ref = await api(`${base}/git/ref/heads/${repo.rama}`, token);
-  const commitBase = await api(`${base}/git/commits/${ref.object.sha}`, token);
-
-  const arbol = await api(`${base}/git/trees`, token, {
-    method: 'POST',
-    body: JSON.stringify({
-      base_tree: commitBase.tree.sha,
-      tree: archivos.map(a => ({
-        path: a.ruta, mode: '100644', type: 'blob', content: a.contenido
-      }))
-    })
-  });
-
-  const commit = await api(`${base}/git/commits`, token, {
-    method: 'POST',
-    body: JSON.stringify({ message: mensaje, tree: arbol.sha, parents: [ref.object.sha] })
-  });
-
-  await api(`${base}/git/refs/heads/${repo.rama}`, token, {
-    method: 'PATCH',
-    body: JSON.stringify({ sha: commit.sha })
-  });
-
-  return commit.sha;
-}
-
-async function dispararCorrida(token, repo, parametros){
-  await api(
-    `/repos/${repo.propietario}/${repo.nombre}/actions/workflows/${repo.workflow}/dispatches`,
-    token,
-    { method: 'POST', body: JSON.stringify({ ref: repo.rama, inputs: parametros }) }
-  );
-}
-
-function recolectarParametros(){
-  const v = id => document.getElementById(id).value.trim();
-  // Solo se mandan los campos con valor: los vacíos dejan que mande config.yaml
-  const p = {};
-  if(v('f-siembra')) p.fecha_siembra = v('f-siembra');
-  if(v('f-au')) p.au_inicial_mm = v('f-au');
-  if(v('f-raiz')) p.prof_raiz_inicial_cm = v('f-raiz');
-  if(v('f-umbral')) p.umbral_riego_pct = v('f-umbral');
-  if(v('f-fin')) p.fecha_fin = v('f-fin');
-  if(v('f-nombre')) p.nombre_lote = v('f-nombre');
-  p.modo_aviso = v('f-modo') || '(usar config)';
-  p.reiniciar_estado = document.getElementById('f-reiniciar').checked ? 'true' : 'false';
-  p.enviar_resumen = document.getElementById('f-resumen').checked ? 'true' : 'false';
-  // "hasta hoy" tiene prioridad sobre la fecha escrita a mano
-  if(document.getElementById('f-hasta-hoy').checked){
-    p.fecha_fin = new Date().toISOString().slice(0,10);
-  }
-  return p;
-}
-
-// ---------------------------------------------------------------------------
-// Guardar los parámetros en config.yaml
-// ---------------------------------------------------------------------------
-// El formulario de arriba manda los valores como inputs de UNA corrida: sirven
-// para probar, pero la corrida automática del día siguiente vuelve a usar los
-// del archivo. Esto escribe los que completaste en config.yaml, para que pasen
-// a ser los de siempre.
-
-async function leerArchivoRepo(token, repo, ruta){
-  const r = await api(
-    `/repos/${repo.propietario}/${repo.nombre}/contents/${ruta}?ref=${repo.rama}`, token);
-  const binario = Uint8Array.from(atob(r.content.replace(/\n/g,'')), c => c.charCodeAt(0));
-  return new TextDecoder('utf-8').decode(binario);
-}
-
-function aCodigoBase64(texto){
-  const bytes = new TextEncoder().encode(texto);
-  let bin = '';
-  bytes.forEach(b => bin += String.fromCharCode(b));
-  return btoa(bin);
-}
-
-// Reemplaza el valor de una clave conservando sangría y comentario de la línea.
-function aplicarEnYaml(texto, clave, valor){
-  const re = new RegExp('^([ \\t]*' + clave + ':[ \\t]*)([^#\\n]*?)([ \\t]*#.*)?$', 'm');
-  if(!re.test(texto)) return {texto, cambiada:false};
-  const nuevo = texto.replace(re, (_m, pre, _val, com) => pre + valor + (com || ''));
-  return {texto:nuevo, cambiada:true};
-}
 
 // ===================== calicata de siembra =====================
 // El perfil por defecto es el mismo que trae src/suelo.py. Si el repositorio
@@ -1655,160 +1468,70 @@ function volcarPegado(){
   }
 }
 
-// Reemplaza un bloque de primer nivel completo (o lo agrega al final si no está).
-function aplicarBloqueYaml(texto, clave, bloque){
-  const re = new RegExp('^' + clave + ':[^\\n]*\\n(?:(?:[ \\t]+[^\\n]*|[ \\t]*#[^\\n]*|[ \\t]*)\\n)*', 'm');
-  if(re.test(texto)) return texto.replace(re, bloque);
-  return texto.replace(/\n*$/, '\n\n') + bloque;
-}
+// ===================== calicata ↔ lote =====================
+// El perfil se guarda en el lote solo si se tocó. Guardar el perfil por
+// defecto en un lote que no tenía calicata cambiaría la huella del balance y
+// recalcularía la campaña entera sin que nadie lo haya pedido.
+let sueloTocado = false;
 
-function bloqueSueloYaml(){
-  // Los comentarios van SANGRADOS, dentro del bloque: si fueran de primer nivel
-  // quedarían fuera de lo que reemplaza aplicarBloqueYaml y se irían acumulando
-  // una copia por cada guardado.
-  const hoy = new Date().toISOString().slice(0,10);
-  let s = 'suelo:\n' +
-          '  # Perfil del lote y agua medida en la calicata de siembra.\n' +
-          '  # Cargado desde la página el ' + hoy + '.\n' +
-          '  # Con agua_inicial_mm presente, balance.llenado_inicial_pct se\n' +
-          '  # ignora en esa capa.\n';
-  PERFIL_DEFECTO.forEach((c, i) => {
-    const cc = document.getElementById('perf-cc-'+i).value.trim();
-    const pmp = document.getElementById('perf-pmp-'+i).value.trim();
-    const dens = document.getElementById('perf-dens-'+i).value.trim();
+function sueloDesdeTablas(){
+  return PERFIL_DEFECTO.map((c, i) => {
+    const capa = {
+      prof_hasta_cm: c.prof,
+      cc_porcentaje: parseFloat(document.getElementById('perf-cc-'+i).value),
+      pmp_porcentaje: parseFloat(document.getElementById('perf-pmp-'+i).value),
+      densidad_aparente: parseFloat(document.getElementById('perf-dens-'+i).value),
+    };
     const prom = promedioCapa(i);
-    s += `  - prof_hasta_cm: ${c.prof}\n`;
-    s += `    cc_porcentaje: ${cc}\n`;
-    s += `    pmp_porcentaje: ${pmp}\n`;
-    s += `    densidad_aparente: ${dens}\n`;
-    if(prom !== null) s += `    agua_inicial_mm: ${prom.toFixed(2)}\n`;
+    if(prom !== null) capa.agua_inicial_mm = Math.round(prom * 100) / 100;
+    return capa;
   });
-  return s + '\n';     // una línea en blanco antes de la clave siguiente
 }
 
-document.getElementById('cal-aplicar').addEventListener('click', volcarPegado);
+// Devuelve false si el lote tiene un perfil con otra división en capas: en
+// ese caso se muestra el perfil por defecto y no se pisa el guardado salvo
+// que se edite la tabla.
+function cargarSueloEnTablas(suelo){
+  document.querySelectorAll('#cal-tabla input').forEach(e => e.value = '');
+  document.getElementById('cal-pegar').value = '';
+  const capas = Array.isArray(suelo) ? suelo : null;
+  const compatible = !!capas && capas.length === PERFIL_DEFECTO.length &&
+    capas.every((c, i) => Number(c.prof_hasta_cm) === PERFIL_DEFECTO[i].prof);
+  PERFIL_DEFECTO.forEach((c, i) => {
+    const s = compatible ? capas[i] : null;
+    document.getElementById('perf-cc-'+i).value = s ? s.cc_porcentaje : c.cc;
+    document.getElementById('perf-pmp-'+i).value = s ? s.pmp_porcentaje : c.pmp;
+    document.getElementById('perf-dens-'+i).value = s ? s.densidad_aparente : c.dens;
+    if(s && s.agua_inicial_mm != null) document.getElementById(`cal-${i}-0`).value = s.agua_inicial_mm;
+  });
+  sueloTocado = false;
+  recalcularCalicata();
+  if(capas && !compatible){
+    document.getElementById('cal-resumen').innerHTML +=
+      '<br><span class="mal">El perfil guardado en este lote tiene otra división en ' +
+      'capas y no se puede mostrar acá. Se ve el perfil por defecto; si editás la ' +
+      'tabla y guardás, reemplaza al guardado.</span>';
+  }
+}
+
+document.getElementById('cal-aplicar').addEventListener('click', () => {
+  volcarPegado();
+  sueloTocado = true;
+});
 document.getElementById('cal-limpiar').addEventListener('click', () => {
   document.querySelectorAll('#cal-tabla input').forEach(e => e.value = '');
   document.getElementById('cal-pegar').value = '';
+  sueloTocado = true;
   recalcularCalicata();
 });
 
-document.getElementById('btn-calicata').addEventListener('click', async () => {
-  const btn = document.getElementById('btn-calicata');
-  const token = document.getElementById('f-token').value.trim();
-  const repo = leerRepo();
-
-  registro.innerHTML = '';
-  if(!repo){ anotar('Indicá el repositorio con el formato usuario/repositorio.', 'err'); return; }
-  if(!token){ anotar('Falta el token de GitHub.', 'err'); return; }
-
-  let conDato = 0;
-  PERFIL_DEFECTO.forEach((_, i) => { if(promedioCapa(i) !== null) conDato++; });
-  if(!conDato){
-    anotar('No cargaste ningún valor de calicata: no hay nada que guardar.', 'err');
-    return;
-  }
-
-  btn.disabled = true;
-  const original = btn.textContent;
-  btn.textContent = 'Guardando…';
-  try {
-    guardarToken(token, document.getElementById('f-recordar').checked);
-    anotar('Leyendo config.yaml…');
-    const yaml = await leerArchivoRepo(token, repo, 'config.yaml');
-    const nuevo = aplicarBloqueYaml(yaml, 'suelo', bloqueSueloYaml());
-    anotar(`Perfil de ${PERFIL_DEFECTO.length} capas, ${conDato} con medición.`);
-
-    const sha = await commitearArchivos(token, repo,
-      [{ruta:'config.yaml', contenido: nuevo}],
-      'Calicata de siembra cargada desde la página');
-    anotar('Commit ' + sha.slice(0,7) + ' creado.', 'ok');
-    mostrarAviso('Calicata guardada. La próxima corrida aparta la serie actual y ' +
-                 'recalcula el balance desde la siembra con el perfil medido.', 'ok');
-  } catch(err){
-    if(err.status === 401) anotar('Token rechazado (401).', 'err');
-    else if(err.status === 403 || err.status === 404)
-      anotar('Sin permiso (' + err.status + ') o no existe config.yaml.', 'err');
-    else if(err.status === 422) anotar('La rama del repositorio cambió varias veces mientras se escribía (422). Suele pasar si hay una corrida de GitHub Actions en curso: esperá a que termine y probá de nuevo.', 'err');
-    else anotar('Error: ' + err.message, 'err');
-  } finally {
-    btn.disabled = false;
-    btn.textContent = original;
-  }
-});
-
 construirTablas();
-
-document.getElementById('btn-defaults').addEventListener('click', async () => {
-  const btn = document.getElementById('btn-defaults');
-  const token = document.getElementById('f-token').value.trim();
-  const repo = leerRepo();
-
-  registro.innerHTML = '';
-  if(!repo){ anotar('Indicá el repositorio con el formato usuario/repositorio.', 'err'); return; }
-  if(!token){ anotar('Falta el token de GitHub.', 'err'); return; }
-
-  const v = id => document.getElementById(id).value.trim();
-  const cambios = [];
-  if(v('f-siembra')) cambios.push(['fecha_siembra', '"' + v('f-siembra') + '"']);
-  if(v('f-au'))      cambios.push(['au_real_inicial_mm', v('f-au')]);
-  if(v('f-raiz'))    cambios.push(['prof_raiz_inicial_cm', v('f-raiz')]);
-  if(v('f-umbral'))  cambios.push(['umbral_riego_pct', v('f-umbral')]);
-  if(v('f-nombre'))  cambios.push(['nombre_lote', '"' + v('f-nombre') + '"']);
-
-  if(!cambios.length){
-    anotar('No completaste ningún parámetro: no hay nada que guardar.', 'err');
-    return;
-  }
-
-  btn.disabled = true;
-  const textoOriginal = btn.textContent;
-  btn.textContent = 'Guardando…';
-
-  try {
-    guardarToken(token, document.getElementById('f-recordar').checked);
-    anotar('Leyendo config.yaml…');
-    let yaml = await leerArchivoRepo(token, repo, 'config.yaml');
-
-    const hechos = [], fallados = [];
-    for(const [clave, valor] of cambios){
-      const r = aplicarEnYaml(yaml, clave, valor);
-      yaml = r.texto;
-      (r.cambiada ? hechos : fallados).push(clave + ': ' + valor);
-    }
-    fallados.forEach(c => anotar('No encontré la clave en config.yaml: ' + c, 'err'));
-    if(!hechos.length){ anotar('No se cambió nada.', 'err'); return; }
-
-    hechos.forEach(c => anotar('  ' + c));
-    const sha = await commitearArchivos(token, repo,
-      [{ruta:'config.yaml', contenido: yaml}],
-      'Parámetros actualizados desde la página');
-    anotar('Commit ' + sha.slice(0,7) + ' creado.', 'ok');
-
-    const cambiaSiembra = hechos.some(h => h.startsWith('fecha_siembra'));
-    mostrarAviso('Parámetros guardados. Desde ahora la corrida automática los usa.' +
-      (cambiaSiembra ? ' Como cambió la fecha de siembra, la próxima corrida archiva ' +
-                       'la serie anterior y recalcula desde cero.' : ''), 'ok');
-
-  } catch(err){
-    if(err.status === 401){
-      anotar('Token rechazado (401).', 'err');
-    } else if(err.status === 403 || err.status === 404){
-      anotar('Sin permiso (' + err.status + ') o no existe config.yaml en el repositorio.', 'err');
-    } else if(err.status === 422){
-      anotar('La rama del repositorio cambió varias veces mientras se escribía (422). Suele pasar si hay una corrida de GitHub Actions en curso: esperá a que termine y probá de nuevo.', 'err');
-    } else {
-      anotar('Error: ' + err.message, 'err');
-    }
-  } finally {
-    btn.disabled = false;
-    btn.textContent = textoOriginal;
-  }
-});
+document.querySelectorAll('#cal-tabla input, #cal-perfil input')
+  .forEach(e => e.addEventListener('input', () => { sueloTocado = true; }));
 
 // La fecha se escribe en palabras debajo del campo: un 05/01 puesto por error
 // donde iba 28/05 es invisible en el formato corto, y arrastra meses de más.
-document.getElementById('f-siembra').addEventListener('change', () => {
+function ecoSiembra(){
   const eco = document.getElementById('f-siembra-eco');
   const val = document.getElementById('f-siembra').value;
   if(!val){ eco.textContent = ''; return; }
@@ -1818,89 +1541,8 @@ document.getElementById('f-siembra').addEventListener('change', () => {
   const dias = Math.round((Date.now() - Date.UTC(a,m-1,d)) / 86400000);
   eco.textContent = `${d} de ${meses[m-1]} de ${a}` +
     (dias >= 0 ? ` — hace ${dias} días` : ` — dentro de ${-dias} días`);
-});
-
-document.getElementById('btn-guardar').addEventListener('click', async () => {
-  const btn = document.getElementById('btn-guardar');
-  const token = document.getElementById('f-token').value.trim();
-  const repo = leerRepo();
-
-  registro.innerHTML = '';
-  if(!repo){
-    anotar('Indicá el repositorio con el formato usuario/repositorio.', 'err');
-    return;
-  }
-  if(!token){
-    anotar('Falta el token de GitHub.', 'err');
-    return;
-  }
-  if(!geomActual){
-    anotar('No hay ningún lote definido. Dibujalo o cargalo en la pestaña «Lote».', 'err');
-    return;
-  }
-
-  btn.disabled = true;
-  const textoOriginal = btn.textContent;
-  btn.textContent = 'Guardando…';
-
-  try {
-    guardarToken(token, document.getElementById('f-recordar').checked);
-
-    anotar(`Repositorio: ${repo.propietario}/${repo.nombre}`);
-
-    const contenido = JSON.stringify(
-      {type:'Feature', properties:{nombre: document.getElementById('f-nombre').value.trim() || 'Lote'},
-       geometry: geomActual}, null, 2);
-
-    const ha = (areaPoligono(geomActual)/10000).toFixed(2);
-    anotar(`Escribiendo el lote (${ha} ha)…`);
-
-    const sha = await commitearArchivos(token, repo, [
-      {ruta: 'aoi/lote.geojson', contenido},
-      {ruta: 'docs/lote_actual.geojson', contenido}
-    ], `Lote actualizado desde la página (${ha} ha)`);
-
-    anotar('Commit ' + sha.slice(0,7) + ' creado.', 'ok');
-
-    const parametros = recolectarParametros();
-    const resumen = Object.entries(parametros)
-      .filter(([k,v]) => v && v !== '(usar config)' && v !== 'false')
-      .map(([k,v]) => `${k}=${v}`).join(', ');
-    anotar('Lanzando la corrida' + (resumen ? ' con ' + resumen : ' con la configuración guardada') + '…');
-
-    await dispararCorrida(token, repo, parametros);
-
-    anotar('Corrida lanzada.', 'ok');
-    anotar('Tarda unos minutos. Seguila en la pestaña Actions del repositorio.');
-    mostrarAviso('Guardado y en marcha. ' +
-      '<a href="https://github.com/' + repo.propietario + '/' + repo.nombre +
-      '/actions" target="_blank" rel="noopener">Ver la corrida en Actions →</a>', 'ok');
-
-  } catch(err){
-    if(err.status === 401){
-      anotar('Token rechazado (401). Revisá que esté bien copiado y que no haya vencido.', 'err');
-    } else if(err.status === 403 || err.status === 404){
-      anotar('Sin permiso (' + err.status + '). El token tiene que incluir este repositorio ' +
-             'con permisos de Contents y Actions en lectura y escritura.', 'err');
-    } else if(err.status === 409){
-      anotar('El repositorio cambió mientras se guardaba. Reintentá.', 'err');
-    } else if(err.status === 422){
-      anotar('La rama del repositorio cambió varias veces mientras se escribía (422). Suele pasar si hay una corrida de GitHub Actions en curso: esperá a que termine y probá de nuevo.', 'err');
-    } else {
-      anotar('Error: ' + err.message, 'err');
-    }
-  } finally {
-    btn.disabled = false;
-    btn.textContent = textoOriginal;
-  }
-});
-
-document.getElementById('btn-olvidar').addEventListener('click', () => {
-  olvidarToken();
-  document.getElementById('f-token').value = '';
-  document.getElementById('f-recordar').checked = false;
-  anotar('Token borrado de este navegador.', 'ok');
-});
+}
+document.getElementById('f-siembra').addEventListener('change', ecoSiembra);
 
 // el nombre del lote escrito en el formulario se refleja en el encabezado
 document.getElementById('f-nombre').addEventListener('input', e => {
@@ -1908,49 +1550,388 @@ document.getElementById('f-nombre').addEventListener('input', e => {
   if(v) document.getElementById('titulo-lote').textContent = v;
 });
 
-// precargar repositorio y token
-(function(){
-  const r = document.getElementById('f-repo');
-  try { r.value = localStorage.getItem('bh_repo') || detectarRepo(); }
-  catch { r.value = detectarRepo(); }
-  r.addEventListener('change', () => { try { localStorage.setItem('bh_repo', r.value.trim()); } catch {} });
-})();
+// --- registro visible de lo que va pasando ---
+const registro = document.getElementById('registro');
+function anotar(texto, clase='info'){
+  registro.classList.add('visible');
+  const linea = document.createElement('div');
+  linea.className = 'l-' + clase;
+  linea.textContent = texto;
+  registro.appendChild(linea);
+  registro.scrollTop = registro.scrollHeight;
+}
 
-(function(){
-  const t = leerToken();
-  if(t){
-    document.getElementById('f-token').value = t;
-    try { if(localStorage.getItem(CLAVE_TOKEN)) document.getElementById('f-recordar').checked = true; } catch {}
+// ===================== sesión (Supabase) =====================
+// La clave anon de config.js es pública por diseño: lo que impide ver lotes
+// ajenos son las políticas de Row Level Security de supabase/schema.sql.
+const CFG = window.AGROBOT || {};
+const sb = (window.supabase && CFG.supabaseUrl && CFG.supabaseAnonKey)
+  ? window.supabase.createClient(CFG.supabaseUrl, CFG.supabaseAnonKey) : null;
+
+let USUARIO = null;
+let LOTES = [];
+let LOTE = null;          // lote elegido; null = lote nuevo, todavía sin guardar
+const CLAVE_LOTE = 'bh_lote_elegido';
+
+function mostrarPantalla(cual){
+  document.getElementById('pantalla-login').classList.toggle('oculto', cual !== 'login');
+  document.getElementById('app').classList.toggle('oculto', cual !== 'app');
+}
+
+function avisoLogin(texto, clase){
+  const el = document.getElementById('aviso-login');
+  el.className = 'aviso' + (clase ? ' ' + clase : '');
+  el.innerHTML = texto;
+}
+
+document.getElementById('form-login').addEventListener('submit', async ev => {
+  ev.preventDefault();
+  const email = document.getElementById('f-email').value.trim();
+  if(!email || !sb) return;
+  const btn = ev.target.querySelector('button');
+  btn.disabled = true;
+  const {error} = await sb.auth.signInWithOtp({
+    email, options: {emailRedirectTo: location.origin + location.pathname}
+  });
+  btn.disabled = false;
+  if(error) avisoLogin('No se pudo enviar el enlace: ' + error.message, 'error');
+  else avisoLogin('Listo. Te mandamos un enlace a <strong>' + email + '</strong>: ' +
+                  'abrilo desde este mismo navegador para entrar.', 'ok');
+});
+
+async function salir(){
+  await sb.auth.signOut();
+  try { localStorage.removeItem(CLAVE_LOTE); } catch {}
+  location.reload();
+}
+document.getElementById('btn-salir').addEventListener('click', salir);
+document.getElementById('btn-salir2').addEventListener('click', salir);
+
+async function entrar(user){
+  USUARIO = user;
+  document.getElementById('usuario-email').textContent = user.email || '';
+  mostrarPantalla('app');
+  await Promise.all([cargarPerfil(), cargarLotes()]);
+}
+
+(function iniciar(){
+  if(!sb){
+    mostrarPantalla('login');
+    document.getElementById('form-login').classList.add('oculto');
+    avisoLogin('Falta configurar la conexión con Supabase en <code>docs/config.js</code> ' +
+               '(ver SUPABASE.md).', 'error');
+    return;
   }
+  // Las llamadas a Supabase no se hacen dentro del callback: la librería
+  // puede quedar trabada esperando su propio bloqueo de sesión.
+  sb.auth.onAuthStateChange((_evento, sesion) => {
+    if(sesion && !USUARIO) setTimeout(() => entrar(sesion.user), 0);
+    if(!sesion){ USUARIO = null; mostrarPantalla('login'); }
+  });
 })();
 
-// ===================== mosaico de NDVI =====================
-// Se pide con un parámetro de tiempo para saltear el caché del navegador:
-// la imagen cambia en cada corrida pero conserva el mismo nombre.
-(function(){
+// ===================== lotes =====================
+const estadoDe = l => l ? (Array.isArray(l.estado_lote) ? l.estado_lote[0] : l.estado_lote) || null : null;
+
+async function cargarLotes(seleccionar){
+  const {data, error} = await sb.from('lotes')
+    .select('*, estado_lote(serie, ultima_fecha_procesada, ultima_corrida, ultimo_error)')
+    .order('nombre');
+  if(error){
+    document.getElementById('meta').textContent = 'No se pudieron leer los lotes: ' + error.message;
+    return;
+  }
+  LOTES = data;
+  pintarSelector();
+  let recordado = seleccionar;
+  if(!recordado){ try { recordado = localStorage.getItem(CLAVE_LOTE); } catch {} }
+  const elegido = LOTES.find(l => l.id === recordado) || LOTES[0];
+  if(elegido) elegirLote(elegido.id);
+  else nuevoLote();
+}
+
+function pintarSelector(){
+  const sel = document.getElementById('sel-lote');
+  sel.innerHTML = LOTES.map(l =>
+    `<option value="${l.id}">${l.nombre.replace(/</g,'&lt;')}${l.activo ? '' : ' (pausado)'}</option>`
+  ).join('') + '<option value="__nuevo">+ Lote nuevo…</option>';
+}
+
+document.getElementById('sel-lote').addEventListener('change', e => {
+  if(e.target.value === '__nuevo') nuevoLote();
+  else elegirLote(e.target.value);
+});
+document.getElementById('btn-nuevo').addEventListener('click', nuevoLote);
+
+function elegirLote(id){
+  LOTE = LOTES.find(l => l.id === id) || null;
+  if(!LOTE) return nuevoLote();
+  try { localStorage.setItem(CLAVE_LOTE, id); } catch {}
+  document.getElementById('sel-lote').value = id;
+  document.getElementById('titulo-lote').textContent = LOTE.nombre;
+  document.getElementById('btn-borrar').disabled = false;
+  registro.innerHTML = ''; registro.classList.remove('visible');
+  cargarFormulario(LOTE);
+  cargarSueloEnTablas(LOTE.suelo);
+  if(LOTE.geometria) ponerEnMapa(LOTE.geometria);
+  cargarResultados(LOTE);
+  cargarMosaico(LOTE);
+}
+
+function nuevoLote(){
+  LOTE = null;
+  document.getElementById('sel-lote').value = '__nuevo';
+  document.getElementById('titulo-lote').textContent = 'Lote nuevo';
+  document.getElementById('btn-borrar').disabled = true;
+  registro.innerHTML = ''; registro.classList.remove('visible');
+  cargarFormulario(null);
+  cargarSueloEnTablas(null);
+  if(HAY_MAPA) dibujado.clearLayers();
+  actualizar(null);
+  cargarMosaico(null);
+  sinDatos('Lote nuevo: dibujalo en la pestaña «Lote», completá los parámetros y guardalo.');
+  document.querySelector('nav.secciones button[data-seccion="lote"]').click();
+}
+
+function cargarFormulario(l){
+  const pon = (id, v) => document.getElementById(id).value = (v == null ? '' : v);
+  pon('f-nombre', l ? l.nombre : '');
+  pon('f-siembra', l ? l.fecha_siembra : '');
+  pon('f-au', l ? l.au_real_inicial_mm : 40);
+  pon('f-raiz', l ? l.prof_raiz_inicial_cm : 1);
+  pon('f-umbral', l ? l.umbral_riego_pct : 50);
+  pon('f-eficiencia', l ? l.eficiencia_aplicacion : 0.85);
+  pon('f-modo', l ? l.modo_aviso : 'cruce');
+  document.getElementById('f-activo').checked = l ? l.activo : true;
+  document.getElementById('f-reiniciar').checked = false;
+  ecoSiembra();
+  const est = estadoDe(l);
+  let txt = 'Todavía no se guardó.';
+  if(l && !est) txt = 'Guardado. Se calcula en la próxima corrida (cada hora).';
+  else if(est){
+    txt = est.ultima_fecha_procesada
+      ? 'Calculado hasta el ' + fechaLarga(new Date(est.ultima_fecha_procesada + 'T00:00:00')) + '.'
+      : 'Esperando la primera corrida.';
+    if(est.ultima_corrida) txt += ' Última corrida: ' +
+      new Date(est.ultima_corrida).toLocaleString('es-AR', {dateStyle:'short', timeStyle:'short'}) + '.';
+    if(est.ultimo_error) txt += ' <span class="mal">Falló: ' +
+      String(est.ultimo_error).replace(/</g,'&lt;') + '</span>';
+  }
+  document.getElementById('estado-corrida').innerHTML = txt;
+}
+
+// ===================== resultados del lote =====================
+let pedidoActual = 0;
+
+function sinDatos(texto){
+  document.getElementById('cargando').classList.add('oculto');
+  document.getElementById('contenido').classList.add('oculto');
+  const el = document.getElementById('sin-datos');
+  el.classList.remove('oculto');
+  document.getElementById('sin-datos-texto').innerHTML = texto;
+  document.getElementById('meta').textContent = 'Sin datos aún';
+}
+
+async function cargarResultados(lote){
+  const n = ++pedidoActual;
+  ESTADO_PUB = null; ULTIMO_CSV = null;
+  UMBRAL_RIEGO = Number(lote.umbral_riego_pct);
+  EFICIENCIA = Number(lote.eficiencia_aplicacion);
+  pintarPronostico(null);
+  document.getElementById('contenido').classList.add('oculto');
+  document.getElementById('sin-datos').classList.add('oculto');
+  document.getElementById('cargando').classList.remove('oculto');
+
+  const est = estadoDe(lote);
+  if(!est){
+    sinDatos('Todavía no se calculó. El sistema corre cada hora: en un rato aparece la ' +
+             'serie desde la siembra.');
+    return;
+  }
+
+  const [serie, resumen] = await Promise.all([
+    sb.from('balance_diario').select('*')
+      .eq('lote_id', lote.id).eq('serie', est.serie).order('fecha'),
+    sb.from('resumen_lote').select('resumen').eq('lote_id', lote.id).maybeSingle()
+  ]);
+  if(n !== pedidoActual) return;     // se eligió otro lote mientras cargaba
+
+  if(serie.error){ sinDatos('No se pudo leer la serie: ' + serie.error.message); return; }
+  const datos = serie.data.map(f => ({...f, fecha: new Date(f.fecha + 'T00:00:00')}));
+  if(!datos.length){
+    sinDatos(est.ultimo_error
+      ? 'La última corrida falló: ' + String(est.ultimo_error).replace(/</g,'&lt;')
+      : 'Todavía no hay días calculados para esta campaña. Si la siembra es reciente, ' +
+        'el primer día aparece cuando haya datos de clima y satélite (dos días de atraso).');
+    return;
+  }
+  dibujarTodo(datos);
+  ESTADO_PUB = resumen.data ? resumen.data.resumen : null;
+  pintarRecomendacion();
+  pintarPronostico(ESTADO_PUB);
+}
+
+async function cargarMosaico(lote){
   const img = document.getElementById('mosaico');
   const vacio = document.getElementById('mosaico-vacio');
-  if(!img) return;
-  const url = 'ndvi_mosaico.png?t=' + Date.now();
+  img.style.display = 'none'; vacio.style.display = 'block';
+  img.removeAttribute('src');
+  if(!lote) return;
+  const {data, error} = await sb.storage.from('mosaicos')
+    .createSignedUrl(`${lote.usuario_id}/${lote.id}.png`, 3600);
+  if(error || !data || LOTE !== lote) return;
   img.onload = () => { img.style.display = 'block'; vacio.style.display = 'none'; };
-  img.onerror = () => { img.style.display = 'none'; vacio.style.display = 'block'; };
-  img.src = url;
-})();
+  img.src = data.signedUrl;
+}
 
-// ===================== lote actual como punto de partida =====================
-fetch('lote_actual.geojson', {cache:'no-store'})
-  .then(r => r.ok ? r.json() : Promise.reject())
-  .then(gj => {
-    const geom = primeraGeometria(gj);
-    if(geom){
-      ponerEnMapa(geom);
-      mostrarAviso('Se cargó el lote que está en uso. Podés editarlo con la herramienta ' +
-        'de edición del mapa, o dibujar uno nuevo.', 'ok');
+// ===================== guardar y borrar =====================
+const mismaGeometria = (a, b) => JSON.stringify(redondear(a)) === JSON.stringify(redondear(b));
+
+document.getElementById('btn-guardar').addEventListener('click', async () => {
+  const btn = document.getElementById('btn-guardar');
+  const v = id => document.getElementById(id).value.trim();
+  const numero = (id, defecto) => v(id) === '' ? defecto : Number(v(id).replace(',', '.'));
+
+  registro.innerHTML = '';
+  if(!v('f-nombre')){ anotar('Falta el nombre del lote.', 'err'); return; }
+  if(!v('f-siembra')){ anotar('Falta la fecha de siembra.', 'err'); return; }
+  if(!geomActual){
+    anotar('No hay ningún lote dibujado. Dibujalo o cargalo en la pestaña «Lote».', 'err');
+    return;
+  }
+
+  const fila = {
+    nombre: v('f-nombre'),
+    fecha_siembra: v('f-siembra'),
+    au_real_inicial_mm: numero('f-au', 40),
+    prof_raiz_inicial_cm: numero('f-raiz', 1),
+    umbral_riego_pct: numero('f-umbral', 50),
+    eficiencia_aplicacion: numero('f-eficiencia', 0.85),
+    modo_aviso: v('f-modo') || 'cruce',
+    activo: document.getElementById('f-activo').checked,
+    reiniciar: document.getElementById('f-reiniciar').checked,
+  };
+  if(fila.eficiencia_aplicacion > 1 && fila.eficiencia_aplicacion <= 100){
+    fila.eficiencia_aplicacion /= 100;      // escribieron 85 en vez de 0,85
+  }
+  const malos = Object.entries(fila).filter(([, x]) => typeof x === 'number' && !isFinite(x));
+  if(malos.length){ anotar('Revisá los valores numéricos: ' + malos.map(m => m[0]).join(', '), 'err'); return; }
+
+  // Lo que no cambió no se manda: reescribir la misma geometría redondeada o
+  // el perfil por defecto cambiaría la huella y recalcularía sin motivo.
+  const cambiaGeom = !LOTE || !mismaGeometria(LOTE.geometria, geomActual);
+  if(cambiaGeom){
+    fila.geometria = geomActual;
+    fila.area_ha = Math.round(areaPoligono(geomActual) / 100) / 100;
+  }
+  if(sueloTocado) fila.suelo = sueloDesdeTablas();
+
+  const est = estadoDe(LOTE);
+  const recalcula = LOTE && est && est.ultima_fecha_procesada && (
+    cambiaGeom || sueloTocado || fila.fecha_siembra !== LOTE.fecha_siembra);
+  // El agua y la raíz iniciales solo se usan el día de la siembra: en un lote
+  // ya calculado no tienen efecto si no se recalcula desde ahí.
+  if(LOTE && est && est.ultima_fecha_procesada && !recalcula &&
+     (fila.au_real_inicial_mm !== Number(LOTE.au_real_inicial_mm) ||
+      fila.prof_raiz_inicial_cm !== Number(LOTE.prof_raiz_inicial_cm))){
+    fila.reiniciar = true;
+    anotar('Cambiaste el agua o la raíz inicial: se recalcula desde la siembra.');
+  }
+
+  btn.disabled = true;
+  const textoOriginal = btn.textContent;
+  btn.textContent = 'Guardando…';
+  try {
+    const consulta = LOTE
+      ? sb.from('lotes').update(fila).eq('id', LOTE.id).select().single()
+      : sb.from('lotes').insert(fila).select().single();
+    const {data, error} = await consulta;
+    if(error){
+      if(error.code === '23505') anotar('Ya tenés un lote con ese nombre.', 'err');
+      else if(error.code === '23514') anotar('Algún valor está fuera de rango (umbral 0–100, eficiencia entre 0 y 1).', 'err');
+      else anotar('No se pudo guardar: ' + error.message, 'err');
+      return;
     }
-  })
-  .catch(() => { /* sin lote previo: se arranca en blanco */ });
+    anotar('Lote guardado' + (fila.area_ha ? ` (${num(fila.area_ha, 2)} ha)` : '') + '.', 'ok');
+    if(recalcula || fila.reiniciar){
+      anotar('En la próxima corrida se recalcula desde la siembra. La serie actual queda ' +
+             'archivada, no se pierde.');
+    }
+    anotar('El sistema corre cada hora: los resultados aparecen en la pestaña «Estado».');
+    await cargarLotes(data.id);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = textoOriginal;
+  }
+});
+
+document.getElementById('btn-borrar').addEventListener('click', async () => {
+  if(!LOTE) return;
+  if(!confirm(`¿Borrar el lote «${LOTE.nombre}» con toda su serie? No se puede deshacer.\n\n` +
+              'Para dejar de calcularlo sin perder la serie, destildá «Calcular este lote».')) return;
+  const {error} = await sb.from('lotes').delete().eq('id', LOTE.id);
+  if(error){ anotar('No se pudo borrar: ' + error.message, 'err'); return; }
+  try { localStorage.removeItem(CLAVE_LOTE); } catch {}
+  await cargarLotes();
+});
+
+// ===================== cuenta y Telegram =====================
+let sondeo = null;
+
+async function cargarPerfil(){
+  const {data} = await sb.from('perfiles').select('nombre, telegram_chat_id').maybeSingle();
+  const perfil = data || {};
+  document.getElementById('f-mi-nombre').value = perfil.nombre || '';
+  const vinculado = !!perfil.telegram_chat_id;
+  const el = document.getElementById('tg-estado');
+  el.className = 'aviso' + (vinculado ? ' ok' : '');
+  el.innerHTML = vinculado
+    ? '<strong>Telegram vinculado.</strong> Los avisos de tus lotes llegan a ese chat, y ' +
+      'el bot responde ahí sobre tus lotes.'
+    : 'Todavía no vinculaste Telegram: no vas a recibir avisos ni podés consultarle al bot.';
+  document.getElementById('btn-desvincular').disabled = !vinculado;
+  if(vinculado && sondeo){
+    clearInterval(sondeo); sondeo = null;
+    document.getElementById('tg-codigo').classList.add('oculto');
+  }
+  return vinculado;
+}
+
+document.getElementById('btn-codigo').addEventListener('click', async () => {
+  const {data: codigo, error} = await sb.rpc('generar_codigo_vinculacion');
+  const caja = document.getElementById('tg-codigo');
+  caja.classList.remove('oculto');
+  if(error){ caja.className = 'aviso error'; caja.textContent = 'No se pudo generar: ' + error.message; return; }
+  caja.className = 'aviso';
+  const bot = (CFG.botTelegram || '').replace(/^@/, '');
+  caja.innerHTML = (bot
+      ? `Abrí <a href="https://t.me/${bot}?start=${codigo}" target="_blank" rel="noopener">` +
+        `@${bot}</a> y tocá <strong>Iniciar</strong>, o mandale este mensaje:`
+      : 'Mandale este mensaje al bot:') +
+    `<div class="lamina" style="font-size:24px;margin:8px 0">/vincular ${codigo}</div>` +
+    'El código vence en 15 minutos. Esta página se actualiza sola cuando quede vinculado.';
+  if(sondeo) clearInterval(sondeo);
+  const fin = Date.now() + 15 * 60 * 1000;
+  sondeo = setInterval(async () => {
+    if(Date.now() > fin){ clearInterval(sondeo); sondeo = null; return; }
+    await cargarPerfil();
+  }, 4000);
+});
+
+document.getElementById('btn-desvincular').addEventListener('click', async () => {
+  if(!confirm('¿Desvincular Telegram? Dejás de recibir avisos hasta volver a vincularlo.')) return;
+  await sb.rpc('desvincular_telegram');
+  await cargarPerfil();
+});
+
+document.getElementById('btn-mi-nombre').addEventListener('click', async () => {
+  const nombre = document.getElementById('f-mi-nombre').value.trim();
+  const {error} = await sb.from('perfiles').update({nombre}).eq('id', USUARIO.id);
+  const el = document.getElementById('tg-estado');
+  if(error) alert('No se pudo guardar el nombre: ' + error.message);
+  else { el.insertAdjacentHTML('beforeend', '<br>Nombre guardado.'); }
+});
 
 </script>
 </body>
 </html>
-

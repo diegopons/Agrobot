@@ -244,6 +244,22 @@ class AlmacenLocal:
     def riegos(self, lote: Lote, desde: str, hasta: str) -> dict:
         return {}   # en modo local no hay dónde cargarlos
 
+    # en modo local no hay cuentas que aprobar
+    def pedidos_sin_avisar(self) -> list[dict]:
+        return []
+
+    def administradores(self) -> list[dict]:
+        return []
+
+    def marcar_avisados(self, ids: list[str]) -> None:
+        pass
+
+    def aprobados_sin_avisar(self) -> list[dict]:
+        return []
+
+    def marcar_aprobacion_avisada(self, ids: list[str]) -> None:
+        pass
+
     @property
     def _ruta_carta(self) -> Path:
         return Path(self._rutas["estado_json"]).with_name("suelo_carta.json")
@@ -389,7 +405,7 @@ class AlmacenSupabase:
 
     def lotes(self, solo_id: Optional[str] = None, solo_pendientes: bool = False) -> list[Lote]:
         params = {
-            "select": "*,perfil:perfiles(nombre,telegram_chat_id),"
+            "select": "*,perfil:perfiles(nombre,telegram_chat_id,aprobado),"
                       "estado:estado_lote(ultima_fecha_procesada,ultima_corrida)",
             "activo": "eq.true",
             "order": "creado.asc",
@@ -412,6 +428,10 @@ class AlmacenSupabase:
             if solo_pendientes and not self._pendiente(fila):
                 continue
             perfil = fila.get("perfil") or {}
+            # Cuenta a la que un administrador le quitó el acceso: sus lotes
+            # quedan guardados pero no se calculan.
+            if perfil.get("aprobado") is False:
+                continue
             try:
                 cfg = config_de_lote(self.cfg_base, fila)
             except (KeyError, TypeError, ValueError) as e:
@@ -553,6 +573,28 @@ class AlmacenSupabase:
         # La carpeta es el usuario: la política de Storage solo deja leer la propia
         self.db.subir("mosaicos", f"{lote.usuario_id}/{lote.id}.png",
                       Path(ruta).read_bytes(), "image/png")
+
+    # --- pedidos de acceso ---
+    def pedidos_sin_avisar(self) -> list[dict]:
+        return self.db.select("perfiles", {
+            "select": "id,email,nombre,organizacion,motivo,creado",
+            "aprobado": "eq.false", "aviso_admin": "eq.false", "order": "creado.asc"})
+
+    def administradores(self) -> list[dict]:
+        return self.db.select("perfiles", {"select": "email,telegram_chat_id", "es_admin": "eq.true"})
+
+    def marcar_avisados(self, ids: list[str]) -> None:
+        if ids:
+            self.db.update("perfiles", {"id": f"in.({','.join(ids)})"}, {"aviso_admin": True})
+
+    def aprobados_sin_avisar(self) -> list[dict]:
+        return self.db.select("perfiles", {
+            "select": "id,email,nombre,telegram_chat_id",
+            "aprobado": "eq.true", "aviso_aprobacion": "eq.false"})
+
+    def marcar_aprobacion_avisada(self, ids: list[str]) -> None:
+        if ids:
+            self.db.update("perfiles", {"id": f"in.({','.join(ids)})"}, {"aviso_aprobacion": True})
 
     def suelo_carta(self, lote: Lote) -> Optional[dict]:
         filas = self.db.select("estado_lote", {"select": "suelo_carta", **self._filtro(lote)})

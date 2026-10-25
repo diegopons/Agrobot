@@ -44,6 +44,7 @@ from src import pronostico as mod_pronostico
 from src import clima as mod_clima
 from src import suelo_carta as mod_suelo_carta
 from src import indices as mod_indices
+from src.avisos_admin import avisar_aprobaciones, avisar_pedidos_de_acceso
 from src import publicar_estado as mod_estado_json
 from src.config import cargar_config
 from src.estado import huella_corrida
@@ -783,6 +784,13 @@ def main(config_path: str = "config.yaml") -> int:
                 "recalcular los lotes de todos los usuarios. Indicar BH_LOTE_ID."
             )
             opciones.reiniciar = False
+
+    # Pedidos de acceso nuevos: aviso a los administradores (correo y Telegram)
+    try:
+        avisar_pedidos_de_acceso(almacen)
+        avisar_aprobaciones(almacen)
+    except Exception as e:  # noqa: BLE001
+        log.warning("No se pudo avisar de los pedidos de acceso: %s", e)
 
     # Las corridas de cada hora solo atienden lotes nuevos o modificados; los
     # días nuevos de todos los lotes los procesa la corrida diaria, a la hora

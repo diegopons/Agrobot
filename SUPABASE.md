@@ -105,6 +105,34 @@ main, carpeta /docs**.
 del lote. `CDSAPI_URL` / `CDSAPI_KEY` solo hacen falta si `agera5` está entre
 las fuentes de clima.
 
+## Paso 5b — Quién puede usar el servicio
+
+La dirección del tablero muestra, a quien no inició sesión, una **portada** que
+explica el servicio y un formulario para **pedir acceso** (correo, nombre,
+organización y para qué lo usaría).
+
+- Una cuenta nueva queda **pendiente**: entra con el enlace, pero ve "tu pedido
+  está en revisión" y no puede cargar lotes. Lo controla la base de datos, no
+  solo la página.
+- Al administrador le llega un **correo** con los datos del pedido y un enlace a
+  la pestaña **Usuarios** del tablero, donde lo aprueba con un botón. (También
+  por Telegram, si tiene el chat vinculado.)
+- Al aprobarla, el usuario recibe un correo avisándole que ya puede entrar.
+  Los dos correos salen en la corrida de la hora siguiente.
+- **Quitar acceso** no borra los lotes de esa cuenta: dejan de calcularse y el
+  usuario ya no puede modificarlos.
+
+El primer usuario que existía cuando se corrió el esquema queda como
+administrador, y los que ya estaban, aprobados.
+
+Los correos salen por SMTP con estos dos Secrets de GitHub (con Gmail, la misma
+contraseña de aplicación que se cargó en Supabase):
+
+| Name | Valor |
+|---|---|
+| `SMTP_USUARIO` | la cuenta de Gmail, por ejemplo `tu.cuenta@gmail.com` |
+| `SMTP_CLAVE` | la contraseña de aplicación de 16 letras |
+
 ## Paso 6 — Pasar el lote actual a tu cuenta
 
 Para no perder la campaña ya calculada:

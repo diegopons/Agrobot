@@ -398,6 +398,35 @@ button.chico{display:inline-block;width:auto;padding:8px 12px;font-size:13.5px}
       <p>La lámina sugerida es la que falta para llegar a capacidad de campo, corregida por la eficiencia de aplicación. No contempla el pronóstico de lluvia ni la capacidad del equipo: tomala como un dato de apoyo para decidir, no como la decisión.</p>
     </div>
   </main>
+
+    <!-- ====== RIEGOS ====== -->
+    <section id="riegos-panel" class="oculto" style="margin-top:28px">
+      <h2>Riegos aplicados</h2>
+      <p class="subtitulo">La lámina que aplicaste, en milímetros. Entra al balance como la lluvia:
+        por encima de 15 mm se descuenta el escurrimiento.</p>
+      <div class="panel">
+        <div class="campos">
+          <div class="campo">
+            <label for="r-fecha">Fecha</label>
+            <input type="date" id="r-fecha">
+          </div>
+          <div class="campo">
+            <label for="r-mm">Lámina aplicada (mm)</label>
+            <!-- texto y no number: un campo numérico descarta "18,5" según el navegador -->
+            <input type="text" id="r-mm" inputmode="decimal" autocomplete="off" placeholder="25">
+          </div>
+          <div class="campo">
+            <label for="r-nota">Nota (opcional)</label>
+            <input type="text" id="r-nota" maxlength="200" placeholder="Pivote 2, medio círculo">
+          </div>
+        </div>
+        <div class="acciones" style="margin-top:14px;max-width:520px">
+          <button id="btn-riego" class="principal">Registrar riego</button>
+        </div>
+        <div id="aviso-riego" class="aviso oculto"></div>
+        <div style="overflow-x:auto"><table id="tabla-riegos" style="margin-top:16px"></table></div>
+      </div>
+    </section>
   </section>
 
   <!-- ======================= LOTE ======================= -->
@@ -995,7 +1024,7 @@ function dibujarNDVI(datos){
 // ---------- tabla ----------
 function dibujarTabla(datos){
   const ult = datos.slice(-14).reverse();
-  let h = "<thead><tr><th>Fecha</th><th>Agua útil</th><th>%</th><th>Lluvia</th><th>Consumo</th><th>NDVI</th><th>Raíz</th></tr></thead><tbody>";
+  let h = "<thead><tr><th>Fecha</th><th>Agua útil</th><th>%</th><th>Lluvia</th><th>Riego</th><th>Consumo</th><th>NDVI</th><th>Raíz</th></tr></thead><tbody>";
   ult.forEach(d=>{
     const c = clasificar(d.pct_au);
     h += "<tr>" +
@@ -1003,6 +1032,7 @@ function dibujarTabla(datos){
       "<td>" + num(d.au_real_mm) + " mm</td>" +
       "<td>" + num(d.pct_au,0) + " %</td>" +
       "<td>" + (d.precipitacion_mm > 0 ? num(d.precipitacion_mm) + " mm" : "—") + "</td>" +
+      "<td>" + (d.riego_mm > 0 ? num(d.riego_mm) + " mm" : "—") + "</td>" +
       "<td>" + num(d.etc_ajustada_mm) + " mm</td>" +
       "<td>" + d.ndvi.toFixed(2) + "</td>" +
       "<td>" + num(d.prof_raiz_cm,0) + " cm</td>" +
@@ -1676,6 +1706,7 @@ function elegirLote(id){
   if(LOTE.geometria) ponerEnMapa(LOTE.geometria);
   cargarResultados(LOTE);
   cargarMosaico(LOTE);
+  cargarRiegos(LOTE);
 }
 
 function nuevoLote(){
@@ -1689,6 +1720,7 @@ function nuevoLote(){
   if(HAY_MAPA) dibujado.clearLayers();
   actualizar(null);
   cargarMosaico(null);
+  cargarRiegos(null);
   sinDatos('Lote nuevo: dibujalo en la pestaña «Lote», completá los parámetros y guardalo.');
   document.querySelector('nav.secciones button[data-seccion="lote"]').click();
 }
@@ -1784,6 +1816,88 @@ async function cargarMosaico(lote){
   img.onload = () => { img.style.display = 'block'; vacio.style.display = 'none'; };
   img.src = data.signedUrl;
 }
+
+// ===================== riegos =====================
+const hoyISO = () => {
+  const d = new Date();
+  return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+};
+const fechaCortaISO = s => fechaCorta(new Date(s + 'T00:00:00'));
+
+function avisoRiego(texto, clase){
+  const el = document.getElementById('aviso-riego');
+  el.className = 'aviso' + (clase ? ' ' + clase : '');
+  el.innerHTML = texto;
+}
+
+// Qué pasa con el balance después de cargar o borrar un riego de ese día
+function efectoRiego(fecha){
+  const est = estadoDe(LOTE);
+  return est && est.ultima_fecha_procesada && fecha <= est.ultima_fecha_procesada
+    ? ' El balance se recalcula desde el ' + fechaCortaISO(fecha) +
+      ' en la próxima corrida, dentro de la hora.'
+    : ' Entra al balance cuando se calcule ese día.';
+}
+
+async function cargarRiegos(lote){
+  const panel = document.getElementById('riegos-panel');
+  panel.classList.toggle('oculto', !lote);
+  document.getElementById('aviso-riego').classList.add('oculto');
+  if(!lote) return;
+  const f = document.getElementById('r-fecha');
+  f.max = hoyISO(); f.min = lote.fecha_siembra;
+  if(!f.value) f.value = hoyISO();
+
+  const {data, error} = await sb.from('riegos').select('fecha, mm, nota')
+    .eq('lote_id', lote.id).order('fecha', {ascending: false}).limit(60);
+  if(LOTE !== lote) return;
+  const tabla = document.getElementById('tabla-riegos');
+  if(error){ tabla.innerHTML = ''; avisoRiego('No se pudieron leer los riegos: ' + error.message, 'error'); return; }
+  if(!data.length){
+    tabla.innerHTML = '<tbody><tr><td style="color:var(--tinta-suave)">Todavía no cargaste riegos en este lote.</td></tr></tbody>';
+    return;
+  }
+  const total = data.reduce((a, r) => a + Number(r.mm), 0);
+  tabla.innerHTML = '<thead><tr><th>Fecha</th><th>Lámina</th><th>Nota</th><th></th></tr></thead><tbody>' +
+    data.map(r => '<tr><td>' + fechaCortaISO(r.fecha) + '</td>' +
+      '<td>' + num(r.mm) + ' mm</td>' +
+      '<td style="text-align:left">' + String(r.nota || '').replace(/</g, '&lt;') + '</td>' +
+      `<td><button class="chico" data-borrar-riego="${r.fecha}">Borrar</button></td></tr>`).join('') +
+    `</tbody><tfoot><tr><td><strong>Total</strong></td><td><strong>${num(total)} mm</strong></td><td></td><td></td></tr></tfoot>`;
+}
+
+document.getElementById('btn-riego').addEventListener('click', async () => {
+  if(!LOTE){ avisoRiego('Guardá el lote antes de cargarle riegos.', 'error'); return; }
+  const fecha = document.getElementById('r-fecha').value;
+  const mm = Number(document.getElementById('r-mm').value.replace(',', '.'));
+  const nota = document.getElementById('r-nota').value.trim();
+  if(!fecha){ avisoRiego('Falta la fecha.', 'error'); return; }
+  if(fecha > hoyISO()){ avisoRiego('La fecha es futura: cargá el riego cuando lo apliques.', 'error'); return; }
+  if(fecha < LOTE.fecha_siembra){ avisoRiego('La fecha es anterior a la siembra del lote.', 'error'); return; }
+  if(!(mm > 0 && mm <= 500)){ avisoRiego('La lámina tiene que estar entre 0,5 y 500 mm.', 'error'); return; }
+
+  const btn = document.getElementById('btn-riego');
+  btn.disabled = true;
+  const {error} = await sb.from('riegos')
+    .upsert({lote_id: LOTE.id, fecha, mm, nota: nota || null}, {onConflict: 'lote_id,fecha'});
+  btn.disabled = false;
+  if(error){ avisoRiego('No se pudo registrar: ' + error.message, 'error'); return; }
+  document.getElementById('r-mm').value = '';
+  document.getElementById('r-nota').value = '';
+  avisoRiego(`Riego de <strong>${num(mm)} mm</strong> el ${fechaCortaISO(fecha)} registrado ` +
+             '(si ya había uno ese día, se reemplazó).' + efectoRiego(fecha), 'ok');
+  await cargarRiegos(LOTE);
+});
+
+document.getElementById('tabla-riegos').addEventListener('click', async ev => {
+  const fecha = ev.target.dataset && ev.target.dataset.borrarRiego;
+  if(!fecha || !LOTE) return;
+  if(!confirm('¿Borrar el riego del ' + fechaCortaISO(fecha) + '?')) return;
+  const {error} = await sb.from('riegos').delete().eq('lote_id', LOTE.id).eq('fecha', fecha);
+  if(error){ avisoRiego('No se pudo borrar: ' + error.message, 'error'); return; }
+  avisoRiego('Riego del ' + fechaCortaISO(fecha) + ' borrado.' + efectoRiego(fecha), 'ok');
+  await cargarRiegos(LOTE);
+});
 
 // ===================== guardar y borrar =====================
 const mismaGeometria = (a, b) => JSON.stringify(redondear(a)) === JSON.stringify(redondear(b));

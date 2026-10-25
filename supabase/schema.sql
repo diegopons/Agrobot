@@ -108,6 +108,51 @@ create trigger lotes_actualizado
   before update on public.lotes
   for each row execute function public.marcar_actualizado();
 
+-- Primer día que hay que volver a calcular porque se cargó, corrigió o borró
+-- un riego de un día ya procesado. Lo completa el trigger de `riegos` y lo
+-- limpia la corrida al atenderlo.
+alter table public.lotes add column if not exists recalcular_desde date;
+
+-- -----------------------------------------------------------------------------
+-- Riegos aplicados: los carga el usuario, uno por día y por lote
+-- -----------------------------------------------------------------------------
+create table if not exists public.riegos (
+  lote_id      uuid not null references public.lotes(id) on delete cascade,
+  fecha        date not null check (fecha <= current_date + 1),
+  mm           double precision not null check (mm > 0 and mm <= 500),
+  nota         text,
+  actualizado  timestamptz not null default now(),
+  primary key (lote_id, fecha)
+);
+
+-- Un riego en un día ya calculado cambia todo lo que vino después: se marca
+-- el lote para que la próxima corrida retroceda hasta ese día. Marcar el lote
+-- también actualiza `lotes.actualizado`, así lo atiende la corrida de la hora.
+create or replace function public.riego_marca_recalculo()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_lote uuid := coalesce(new.lote_id, old.lote_id);
+  v_fecha date := least(coalesce(new.fecha, old.fecha), coalesce(old.fecha, new.fecha));
+begin
+  if tg_op <> 'DELETE' then
+    new.actualizado := now();
+  end if;
+  update public.lotes
+     set recalcular_desde = least(coalesce(recalcular_desde, v_fecha), v_fecha)
+   where id = v_lote;
+  return coalesce(new, old);
+end
+$$;
+
+drop trigger if exists riegos_recalculo on public.riegos;
+create trigger riegos_recalculo
+  before insert or update or delete on public.riegos
+  for each row execute function public.riego_marca_recalculo();
+
 -- -----------------------------------------------------------------------------
 -- Estado entre corridas: lo que antes era data/estado.json, uno por lote
 -- -----------------------------------------------------------------------------
@@ -155,6 +200,8 @@ create table if not exists public.balance_diario (
   fuente_eto                 text,
   primary key (lote_id, serie, fecha)
 );
+-- El riego escurre como la lluvia: lo que entra al perfil es el efectivo
+alter table public.balance_diario add column if not exists riego_efectivo_mm double precision;
 
 -- -----------------------------------------------------------------------------
 -- Resumen para el bot y el tablero: lo que antes era docs/estado_actual.json
@@ -201,6 +248,17 @@ create policy lotes_propios on public.lotes
   for all to authenticated
   using (usuario_id = auth.uid())
   with check (usuario_id = auth.uid());
+
+-- Riegos: cada uno los carga, corrige y borra en sus propios lotes
+alter table public.riegos enable row level security;
+revoke all on public.riegos from anon;
+grant select, insert, update, delete on public.riegos to authenticated;
+
+drop policy if exists riegos_de_lotes_propios on public.riegos;
+create policy riegos_de_lotes_propios on public.riegos
+  for all to authenticated
+  using (exists (select 1 from public.lotes l where l.id = lote_id and l.usuario_id = auth.uid()))
+  with check (exists (select 1 from public.lotes l where l.id = lote_id and l.usuario_id = auth.uid()));
 
 -- Resultados: solo lectura, y solo de lotes propios
 revoke insert, update, delete on public.estado_lote, public.balance_diario,
@@ -311,7 +369,13 @@ as $$
                'fecha_siembra', l.fecha_siembra,
                'ultima_fecha_procesada', e.ultima_fecha_procesada,
                'ultimo_error', e.ultimo_error,
-               'resumen', r.resumen
+               'resumen', r.resumen,
+               'riegos_recientes', coalesce((
+                 select jsonb_agg(jsonb_build_object('fecha', rg.fecha, 'mm', rg.mm, 'nota', rg.nota)
+                                  order by rg.fecha desc)
+                   from (select * from public.riegos x where x.lote_id = l.id
+                          order by x.fecha desc limit 10) rg
+               ), '[]'::jsonb)
              ) order by l.nombre)
         from public.lotes l
         left join public.estado_lote e on e.lote_id = l.id

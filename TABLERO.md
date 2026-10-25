@@ -38,6 +38,21 @@ El resultado del último día calculado del lote elegido.
 Si corresponde regar, aparece la lámina sugerida, con el umbral y la
 eficiencia de ese lote.
 
+### Riegos aplicados
+
+Al pie de la pestaña se carga cada riego: fecha, lámina en milímetros (con
+coma o punto) y una nota opcional. Hay uno por día y por lote; cargar otro el
+mismo día lo reemplaza.
+
+- El riego **entra al balance como la lluvia, por separado**: hasta 15 mm
+  entra completo, y por encima se descuenta el escurrimiento con la misma
+  fórmula (2,43 · R^0,667). La serie guarda el aplicado (`riego_mm`) y el
+  que entró al perfil (`riego_efectivo_mm`).
+- Lo normal es cargar el riego de un día que **ya está calculado**. En ese
+  caso, la corrida de la hora siguiente vuelve al día anterior al riego y
+  recalcula desde ahí. Los días previos no cambian y no se abre una serie
+  nueva. Lo mismo al corregir o borrar un riego.
+
 ## Lote
 
 El polígono que define el área de cálculo.

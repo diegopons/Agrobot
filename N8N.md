@@ -100,7 +100,8 @@ Respuesta:
       "fecha_siembra": "2026-05-28",
       "ultima_fecha_procesada": "2026-10-23",
       "ultimo_error": null,
-      "resumen": { … el mismo contenido que tenía estado_actual.json … }
+      "resumen": { … el mismo contenido que tenía estado_actual.json … },
+      "riegos_recientes": [ { "fecha": "2026-10-20", "mm": 25, "nota": "pivote 1" } ]
     }
   ]
 }

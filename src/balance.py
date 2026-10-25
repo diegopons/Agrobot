@@ -146,7 +146,10 @@ def procesar_dias_nuevos(
         precipitacion = dia["precipitacion_mm"] if not pd.isna(dia["precipitacion_mm"]) else 0.0
         precipitacion_ef = precipitacion_efectiva(precipitacion, umbral_lluvia_efectiva_mm)
         riego = dia.get("riego_mm", 0.0) or 0.0
-        ingresos_agua = precipitacion_ef + riego
+        # El riego escurre igual que la lluvia, y por separado: dos aportes
+        # chicos el mismo día no se suman para cruzar el umbral.
+        riego_ef = precipitacion_efectiva(riego, umbral_lluvia_efectiva_mm)
+        ingresos_agua = precipitacion_ef + riego_ef
         au_real_hoy = au_real_ayer - etc_ajustada + ingresos_agua
 
         percolacion_profunda = max(0.0, au_real_hoy - au_max_dia)
@@ -169,6 +172,7 @@ def procesar_dias_nuevos(
                 "etc_ajustada_mm": round(etc_ajustada, 2),
                 "percolacion_mm": round(percolacion_profunda, 2),
                 "riego_mm": round(riego, 2),
+                "riego_efectivo_mm": round(riego_ef, 2),
                 "au_real_mm": round(au_real_hoy, 2),
                 "pct_au": round(pct_au_final, 1),
             }

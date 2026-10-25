@@ -68,24 +68,34 @@ class BaseFalsa:
     CLAVES = {
         "lotes": ("id",), "perfiles": ("id",), "estado_lote": ("lote_id",),
         "balance_diario": ("lote_id", "serie", "fecha"), "resumen_lote": ("lote_id",),
+        "riegos": ("lote_id", "fecha"),
     }
     DEFAULTS = {"estado_lote": {"serie": 1, "fechas_con_imagen": []}}
+    OPERADORES = {"eq": lambda a, b: a == b, "lt": lambda a, b: a < b,
+                  "lte": lambda a, b: a <= b, "gte": lambda a, b: a >= b}
 
     def __init__(self):
         self.t = {k: [] for k in self.CLAVES}
         self.archivos = {}
 
-    @staticmethod
-    def _cumple(fila, filtros):
+    @classmethod
+    def _cumple(cls, fila, filtros):
+        condiciones = []
         for k, v in filtros.items():
             if k in ("select", "order", "limit", "offset", "on_conflict"):
                 continue
-            assert v.startswith("eq."), v
-            esperado = v[3:]
-            actual = fila.get(k)
+            if k == "and":          # and=(fecha.gte.X,fecha.lte.Y)
+                for parte in v.strip("()").split(","):
+                    campo, op, valor = parte.split(".", 2)
+                    condiciones.append((campo, op, valor))
+            else:
+                op, valor = v.split(".", 1)
+                condiciones.append((k, op, valor))
+        for campo, op, esperado in condiciones:
+            actual = fila.get(campo)
             if isinstance(actual, bool):
                 actual = str(actual).lower()
-            if str(actual) != esperado:
+            if not cls.OPERADORES[op](str(actual), esperado):
                 return False
         return True
 
@@ -102,8 +112,8 @@ class BaseFalsa:
                 f["estado"] = e and {k: e.get(k) for k in
                                      ("ultima_fecha_procesada", "ultima_corrida")}
         if "order" in params:
-            campo = params["order"].split(".")[0]
-            filas.sort(key=lambda f: str(f.get(campo)))
+            campo, sentido = (params["order"].split(".") + ["asc"])[:2]
+            filas.sort(key=lambda f: str(f.get(campo)), reverse=sentido == "desc")
         return filas
 
     def upsert(self, tabla, filas, on_conflict):
@@ -355,6 +365,48 @@ def test_la_corrida_horaria_solo_atiende_lotes_nuevos_o_modificados(entorno, sup
     assert _estado(supabase, "l1")["serie"] == 2
     for lote_id in ("l2", "l3"):
         assert _estado(supabase, lote_id)["ultima_corrida"] == corridas[lote_id]
+
+
+def test_el_riego_entra_como_la_lluvia_efectiva():
+    from src.balance import precipitacion_efectiva
+    assert precipitacion_efectiva(10) == 10
+    assert precipitacion_efectiva(30) == pytest.approx(2.43 * 30 ** 0.667)
+
+
+def test_los_riegos_cargados_entran_al_balance(entorno, supabase):
+    dia = str((HOY - timedelta(days=10)).date())
+    supabase.t["riegos"] = [{"lote_id": "l3", "fecha": dia, "mm": 30.0}]
+
+    main_mod.main(entorno["cfg"])
+
+    fila = next(f for f in _serie(supabase, "l3") if f["fecha"] == dia)
+    assert fila["riego_mm"] == 30.0
+    assert fila["riego_efectivo_mm"] == pytest.approx(2.43 * 30 ** 0.667, abs=0.01)
+    # el de otro lote no recibe ese riego
+    assert all(f["riego_mm"] == 0 for f in _serie(supabase, "l1"))
+
+
+def test_un_riego_cargado_tarde_recalcula_desde_ese_dia(entorno, supabase, monkeypatch):
+    main_mod.main(entorno["cfg"])
+    antes = {f["fecha"]: f for f in _serie(supabase, "l1")}
+    dia = str((HOY - timedelta(days=8)).date())
+
+    # Lo que hace el trigger de la tabla riegos al cargar uno desde el tablero
+    supabase.t["riegos"] = [{"lote_id": "l1", "fecha": dia, "mm": 12.0}]
+    supabase.update("lotes", {"id": "eq.l1"}, {"recalcular_desde": dia})
+    monkeypatch.setenv("BH_SOLO_PENDIENTES", "true")
+    main_mod.main(entorno["cfg"])
+
+    despues = {f["fecha"]: f for f in _serie(supabase, "l1")}
+    assert set(despues) == set(antes)                       # mismos días, sin duplicar
+    assert _estado(supabase, "l1")["serie"] == 1            # misma campaña
+    assert despues[dia]["riego_mm"] == 12.0
+    assert despues[dia]["au_real_mm"] >= antes[dia]["au_real_mm"]
+    previo = str((HOY - timedelta(days=9)).date())
+    assert despues[previo] == antes[previo]                 # lo anterior no se toca
+    assert next(f for f in supabase.t["lotes"] if f["id"] == "l1")["recalcular_desde"] is None
+    # los otros lotes no se recalcularon
+    assert _estado(supabase, "l3")["ultima_corrida"] is not None
 
 
 def test_el_suelo_del_config_no_se_hereda(entorno):

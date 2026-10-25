@@ -43,7 +43,8 @@ logger = logging.getLogger(__name__)
 COLUMNAS_BALANCE = (
     "fecha", "precipitacion_mm", "precipitacion_efectiva_mm", "recarga_capa_mm",
     "eto_mm", "ndvi", "prof_raiz_cm", "au_max_mm", "kc", "ks", "etc_ajustada_mm",
-    "percolacion_mm", "riego_mm", "au_real_mm", "pct_au", "fuente_pp", "fuente_eto",
+    "percolacion_mm", "riego_mm", "riego_efectivo_mm", "au_real_mm", "pct_au",
+    "fuente_pp", "fuente_eto",
 )
 
 # Fechas con imagen que se recuerdan para el mosaico (que muestra las últimas 8)
@@ -64,6 +65,8 @@ class Lote:
     usuario_id: Optional[str] = None
     telegram_chat_id: Optional[str] = None
     reiniciar: bool = False
+    # Primer día a recalcular porque cambió un riego de un día ya procesado
+    recalcular_desde: Optional[str] = None
     geometria: Optional[dict] = None
     ruta_aoi: Optional[str] = None
     _aoi: Optional[dict] = field(default=None, repr=False)
@@ -238,6 +241,15 @@ class AlmacenLocal:
     def registrar_corrida(self, lote: Lote, error: Optional[str] = None) -> None:
         pass  # el log de la corrida es el registro
 
+    def riegos(self, lote: Lote, desde: str, hasta: str) -> dict:
+        return {}   # en modo local no hay dónde cargarlos
+
+    def rebobinar(self, lote: Lote, guardado: EstadoGuardado, desde: str) -> None:
+        pass
+
+    def recalculo_atendido(self, lote: Lote) -> None:
+        pass
+
 
 # =============================================================================
 # Modo Supabase: todos los lotes de todos los usuarios
@@ -323,7 +335,8 @@ class AlmacenSupabase:
         est = fila.get("estado")
         if isinstance(est, list):
             est = est[0] if est else None
-        if not est or not est.get("ultima_fecha_procesada") or fila.get("reiniciar"):
+        if (not est or not est.get("ultima_fecha_procesada") or fila.get("reiniciar")
+                or fila.get("recalcular_desde")):
             return True
         if not est.get("ultima_corrida"):
             return True
@@ -359,6 +372,7 @@ class AlmacenSupabase:
                 usuario_id=fila["usuario_id"],
                 telegram_chat_id=perfil.get("telegram_chat_id"),
                 reiniciar=bool(fila.get("reiniciar")),
+                recalcular_desde=fila.get("recalcular_desde"),
                 geometria=fila["geometria"],
             ))
         return lotes
@@ -484,6 +498,55 @@ class AlmacenSupabase:
         # La carpeta es el usuario: la política de Storage solo deja leer la propia
         self.db.subir("mosaicos", f"{lote.usuario_id}/{lote.id}.png",
                       Path(ruta).read_bytes(), "image/png")
+
+    def riegos(self, lote: Lote, desde: str, hasta: str) -> dict:
+        """{fecha 'AAAA-MM-DD': mm} de los riegos cargados en el rango."""
+        filas = self.db.select("riegos", {
+            "select": "fecha,mm",
+            **self._filtro(lote),
+            "and": f"(fecha.gte.{desde},fecha.lte.{hasta})",
+        })
+        return {str(f["fecha"]): float(f["mm"]) for f in filas}
+
+    def rebobinar(self, lote: Lote, guardado: EstadoGuardado, desde: str) -> None:
+        """Vuelve el estado al cierre del día anterior a `desde` y borra la
+        serie desde ahí, para recalcular esos días con los riegos corregidos.
+
+        No abre una serie nueva: los días anteriores no cambian, así que
+        siguen siendo la misma campaña.
+        """
+        previos = self.db.select("balance_diario", {
+            "select": "fecha,au_real_mm,prof_raiz_cm,ndvi",
+            **self._filtro(lote),
+            "serie": f"eq.{guardado.serie}",
+            "fecha": f"lt.{desde}",
+            "order": "fecha.desc",
+        })
+        if previos:
+            p = previos[0]
+            guardado.balance = EstadoBalance(
+                ultima_fecha_procesada=str(p["fecha"]),
+                au_real_mm=float(p["au_real_mm"]),
+                prof_raiz_cm=float(p["prof_raiz_cm"]),
+                ultimo_ndvi_valido=p.get("ndvi"),
+            )
+        else:
+            campana = lote.cfg["campana"]
+            guardado.balance = EstadoBalance.inicial(
+                campana["au_real_inicial_mm"], campana["prof_raiz_inicial_cm"])
+        self.db.delete("balance_diario", {
+            **self._filtro(lote), "serie": f"eq.{guardado.serie}", "fecha": f"gte.{desde}"})
+        logger.info("Riegos corregidos: se recalcula desde el %s (estado al %s).",
+                    desde, guardado.balance.ultima_fecha_procesada or "inicio")
+
+    def recalculo_atendido(self, lote: Lote) -> None:
+        if not lote.recalcular_desde:
+            return
+        # Solo si nadie cargó otro riego mientras corría: ese pedido es nuevo
+        self.db.update("lotes", {"id": f"eq.{lote.id}",
+                                 "recalcular_desde": f"eq.{lote.recalcular_desde}"},
+                       {"recalcular_desde": None})
+        lote.recalcular_desde = None
 
     def registrar_corrida(self, lote: Lote, error: Optional[str] = None) -> None:
         self.db.upsert("estado_lote", [{

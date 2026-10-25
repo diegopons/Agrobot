@@ -116,6 +116,11 @@ def construir_estado(
                 if "precipitacion_efectiva_mm" in df else None
             ),
             "riego_aplicado_mm": round(float(df["riego_mm"].sum()), 1),
+            # Días anteriores a esta columna no la tienen: ahí el riego era 0
+            "riego_efectivo_mm": (
+                round(float(pd.to_numeric(df["riego_efectivo_mm"]).fillna(df["riego_mm"]).sum()), 1)
+                if "riego_efectivo_mm" in df else None
+            ),
             "eto_mm": round(float(df["eto_mm"].sum()), 1),
             "consumo_del_cultivo_mm": round(float(df["etc_ajustada_mm"].sum()), 1),
             "percolacion_mm": round(float(df["percolacion_mm"].sum()), 1),

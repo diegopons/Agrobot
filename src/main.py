@@ -183,6 +183,15 @@ def correr_lote(lote: Lote, almacen, cdse: tuple[str, str], opciones: Opciones) 
         suelo=cfg.get("suelo"),
     )
     guardado = almacen.cargar_estado(lote, huella, reiniciar=opciones.reiniciar)
+
+    # Un riego cargado, corregido o borrado en un día ya calculado: se vuelve
+    # al día anterior y se recalcula desde ahí. Con una serie nueva no hace
+    # falta, porque se recalcula todo desde la siembra.
+    if lote.recalcular_desde:
+        ultima = guardado.balance.ultima_fecha_procesada
+        if not guardado.motivo_reinicio and ultima and str(lote.recalcular_desde) <= str(ultima):
+            almacen.rebobinar(lote, guardado, str(lote.recalcular_desde))
+        almacen.recalculo_atendido(lote)
     estado = guardado.balance
 
     df_suelo = precalcular_parametros_suelo(
@@ -382,7 +391,11 @@ def correr_lote(lote: Lote, almacen, cdse: tuple[str, str], opciones: Opciones) 
             enviar_resumen_actual(lote, almacen, guardado)
         return "sin_novedad"
 
-    df_dias["riego_mm"] = 0.0  # cargar riegos reales acá si se registran en campo
+    # Riegos que el usuario cargó en el tablero; los días sin riego van en 0
+    riegos = almacen.riegos(lote, fecha_desde_str, fecha_hasta_str)
+    df_dias["riego_mm"] = df_dias["fecha"].dt.strftime("%Y-%m-%d").map(riegos).fillna(0.0)
+    if riegos:
+        log.info("Riegos cargados en el rango: %d (%.1f mm).", len(riegos), sum(riegos.values()))
 
     # 7. Correr el balance de forma incremental
     df_resultados, estado_nuevo = procesar_dias_nuevos(

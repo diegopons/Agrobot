@@ -55,8 +55,9 @@ el de `config.yaml`, con `data/estado.json` y el CSV (ver README.md).
 
 **SQL Editor → New query**, pegá el contenido completo de
 `supabase/schema.sql` y **Run**. Tiene que terminar con *Success. No rows
-returned*. Se puede volver a correr sin perder datos (por ejemplo, después de
-una actualización del esquema).
+returned*. Se puede volver a correr sin perder datos, y **hay que volver a
+correrlo cada vez que cambia el archivo** (por ejemplo, cuando se agregó la
+carga de riegos): agrega las tablas y columnas nuevas sin tocar lo que ya hay.
 
 ## Paso 3 — Ingreso por correo
 

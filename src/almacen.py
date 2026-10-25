@@ -258,6 +258,37 @@ class AlmacenLocal:
         self._ruta_carta.parent.mkdir(parents=True, exist_ok=True)
         self._ruta_carta.write_text(json.dumps(carta, ensure_ascii=False, indent=1), encoding="utf-8")
 
+    # --- índices espectrales: data/indices.json y docs/indices/<indice>.png ---
+    def _json(self, nombre: str, defecto):
+        try:
+            return json.loads(Path(self._rutas["estado_json"]).with_name(nombre).read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return defecto
+
+    def _escribir_json(self, nombre: str, datos) -> None:
+        ruta = Path(self._rutas["estado_json"]).with_name(nombre)
+        ruta.parent.mkdir(parents=True, exist_ok=True)
+        ruta.write_text(json.dumps(datos, ensure_ascii=False, indent=1), encoding="utf-8")
+
+    def indices_meta(self, lote: Lote) -> Optional[dict]:
+        return self._json("indices_meta.json", None)
+
+    def guardar_indices_meta(self, lote: Lote, meta: dict) -> None:
+        self._escribir_json("indices_meta.json", meta)
+
+    def guardar_indices(self, lote: Lote, filas: list[dict]) -> None:
+        todas = {f["fecha"]: f for f in self._json("indices.json", [])}
+        todas.update({f["fecha"]: f for f in filas})
+        self._escribir_json("indices.json", [todas[k] for k in sorted(todas)])
+
+    def borrar_indices(self, lote: Lote) -> None:
+        self._escribir_json("indices.json", [])
+
+    def publicar_mapa_indice(self, lote: Lote, clave: str, png: bytes) -> None:
+        ruta = Path("docs/indices") / f"{clave}.png"
+        ruta.parent.mkdir(parents=True, exist_ok=True)
+        ruta.write_bytes(png)
+
     def rebobinar(self, lote: Lote, guardado: EstadoGuardado, desde: str) -> None:
         pass
 
@@ -366,8 +397,18 @@ class AlmacenSupabase:
         if solo_id:
             params["id"] = f"eq.{solo_id}"
 
+        try:
+            filas = self.db.select("lotes", params)
+        except ErrorSupabase as e:
+            if solo_id and "22P02" in str(e):
+                raise ErrorSupabase(
+                    f"El id de lote '{solo_id}' no es válido: tiene que tener 36 caracteres, "
+                    "de la forma xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx. Revisá que se haya "
+                    "copiado completo.") from e
+            raise
+
         lotes = []
-        for fila in self.db.select("lotes", params):
+        for fila in filas:
             if solo_pendientes and not self._pendiente(fila):
                 continue
             perfil = fila.get("perfil") or {}
@@ -520,6 +561,27 @@ class AlmacenSupabase:
     def guardar_suelo_carta(self, lote: Lote, carta: dict) -> None:
         self.db.upsert("estado_lote", [{"lote_id": lote.id, "suelo_carta": carta}],
                        on_conflict="lote_id")
+
+    # --- índices espectrales ---
+    def indices_meta(self, lote: Lote) -> Optional[dict]:
+        filas = self.db.select("estado_lote", {"select": "indices_meta", **self._filtro(lote)})
+        return filas[0].get("indices_meta") if filas else None
+
+    def guardar_indices_meta(self, lote: Lote, meta: dict) -> None:
+        self.db.upsert("estado_lote", [{"lote_id": lote.id, "indices_meta": meta}],
+                       on_conflict="lote_id")
+
+    def guardar_indices(self, lote: Lote, filas: list[dict]) -> None:
+        if filas:
+            self.db.upsert("indices_lote",
+                           [{"lote_id": lote.id, **f} for f in filas], on_conflict="lote_id,fecha")
+
+    def borrar_indices(self, lote: Lote) -> None:
+        self.db.delete("indices_lote", self._filtro(lote))
+
+    def publicar_mapa_indice(self, lote: Lote, clave: str, png: bytes) -> None:
+        # Misma carpeta del usuario que el mosaico: la política de Storage es la misma
+        self.db.subir("mosaicos", f"{lote.usuario_id}/{lote.id}/indices/{clave}.png", png, "image/png")
 
     def riegos(self, lote: Lote, desde: str, hasta: str) -> dict:
         """{fecha 'AAAA-MM-DD': mm} de los riegos cargados en el rango."""

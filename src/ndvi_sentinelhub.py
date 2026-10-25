@@ -16,6 +16,7 @@ Classification Layer) de Sentinel-2 L2A dentro del evalscript.
 from __future__ import annotations
 
 import logging
+import math
 from datetime import date, timedelta
 from typing import Optional
 
@@ -47,6 +48,80 @@ STATISTICS_URL = "https://sh.dataspace.copernicus.eu/api/v1/statistics"
 # es el lado correcto para equivocarse: un hueco se interpola, un valor
 # contaminado se propaga.
 SCL_VALIDAS_DEFECTO = (4, 5)
+
+
+def resolucion_en_grados(metros: float, geojson: dict) -> tuple[float, float]:
+    """resx, resy en grados para pedir píxeles de `metros` con bounds en CRS84.
+
+    La Statistical API interpreta resx/resy en las unidades del CRS de los
+    bounds, y con CRS84 son GRADOS. Pedir resx=10 pensando en metros daba
+    píxeles de 10° (~1.100 km): el lote entero caía en un único píxel y el
+    "promedio del lote" era el valor de ese píxel suelto. Por eso el NDVI
+    saltaba entre pasadas y tantas fechas salían fuera de rango.
+    """
+    from shapely.geometry import shape
+    lat = shape(geojson).centroid.y
+    resx = metros / (111_320 * max(0.01, math.cos(math.radians(lat))))
+    resy = metros / 110_540
+    return resx, resy
+
+
+EVALSCRIPT_PIXELES_LOTE = """
+//VERSION=3
+function setup() {
+  return {
+    input: [{ bands: ["dataMask"] }],
+    output: [{ id: "lote", bands: 1, sampleType: "UINT8" }, { id: "dataMask", bands: 1 }]
+  };
+}
+function evaluatePixel(s) { return { lote: [1], dataMask: [s.dataMask] }; }
+"""
+
+
+def pixeles_del_lote(token: str, geojson: dict, desde: str, hasta: str,
+                     resx: float, resy: float, max_cloud_coverage: int) -> dict:
+    """{fecha: píxeles del polígono con imagen} para calcular la cobertura.
+
+    La Statistical API arma la grilla sobre el rectángulo que contiene al lote
+    y cuenta como "sin dato" los píxeles de afuera del polígono: en un lote
+    redondo o irregular eso es un tercio o más de la grilla, aun en un día
+    despejado. La cobertura de nubes tiene que medirse contra los píxeles del
+    lote, no contra los del rectángulo; esta consulta los cuenta (sin máscara
+    de nubes) con la misma grilla y las mismas escenas.
+    """
+    payload = {
+        "input": {
+            "bounds": {"geometry": geojson,
+                       "properties": {"crs": "http://www.opengis.net/def/crs/OGC/1.3/CRS84"}},
+            "data": [{"type": "sentinel-2-l2a",
+                      "dataFilter": {"maxCloudCoverage": max_cloud_coverage}}],
+        },
+        "aggregation": {
+            "timeRange": {"from": f"{desde}T00:00:00Z", "to": f"{hasta}T23:59:59Z"},
+            "aggregationInterval": {"of": "P1D"},
+            "evalscript": EVALSCRIPT_PIXELES_LOTE,
+            "resx": resx, "resy": resy,
+        },
+        "calculations": {"default": {}},
+    }
+    r = requests.post(STATISTICS_URL, json=payload, timeout=120,
+                      headers={"Authorization": f"Bearer {token}"})
+    if r.status_code != 200:
+        raise RuntimeError(f"Statistical API, píxeles del lote ({r.status_code}): {r.text[:300]}")
+    salida = {}
+    for it in r.json().get("data", []):
+        try:
+            st = it["outputs"]["lote"]["bands"]["B0"]["stats"]
+        except KeyError:
+            continue
+        salida[it["interval"]["from"][:10]] = st.get("sampleCount", 0) - st.get("noDataCount", 0)
+    return salida
+
+
+def cobertura_pct(validos: int, fecha: str, pixeles: dict, sample_count: int) -> float:
+    """Porcentaje del lote con píxeles válidos esa fecha."""
+    base = pixeles.get(fecha) or sample_count
+    return min(100.0, 100.0 * validos / base) if base else 0.0
 
 
 def _evalscript(scl_validas) -> str:
@@ -103,6 +178,7 @@ def obtener_serie_ndvi(
     desnudo más húmedo da negativo.
     """
     token = obtener_token(client_id, client_secret)
+    resx, resy = resolucion_en_grados(resolucion_m, geojson_geometry)
 
     payload = {
         "input": {
@@ -124,8 +200,9 @@ def obtener_serie_ndvi(
             },
             "aggregationInterval": {"of": "P1D"},
             "evalscript": _evalscript(scl_validas),
-            "resx": resolucion_m,
-            "resy": resolucion_m,
+            # en grados: los bounds van en CRS84 (ver resolucion_en_grados)
+            "resx": resx,
+            "resy": resy,
         },
         "calculations": {"default": {}},
     }
@@ -142,6 +219,8 @@ def obtener_serie_ndvi(
         )
 
     body = resp.json()
+    pixeles = pixeles_del_lote(token, geojson_geometry, fecha_inicio, fecha_fin,
+                               resx, resy, max_cloud_coverage)
     filas = []
     descartes = {"cobertura": 0, "sin_pixeles": 0, "fuera_de_rango": 0}
     for intervalo in body.get("data", []):
@@ -153,7 +232,10 @@ def obtener_serie_ndvi(
         sample_count = stats.get("sampleCount", 0)
         nodata_count = stats.get("noDataCount", 0)
         validos = sample_count - nodata_count
-        cobertura = (validos / sample_count * 100) if sample_count else 0.0
+        cobertura = cobertura_pct(validos, fecha_str, pixeles, sample_count)
+        if 0 < sample_count < 10:
+            logger.warning("  %s: el lote cae en solo %d píxel(es); revisar la resolución.",
+                           fecha_str, sample_count)
 
         # Un día con la mitad del lote tapado por una nube da un promedio que
         # describe la otra mitad, no el lote. Mejor descartarlo y dejar que la

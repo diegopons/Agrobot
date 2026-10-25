@@ -224,6 +224,13 @@ telegram:
 # 1:50.000 y 1:100.000 en el WFS de Mapas Córdoba y arma el perfil con el agua
 # útil a 1, 1,5 y 2 m de las unidades que cruza el lote, ponderadas por
 # superficie. Se consulta una vez por polígono (ver src/suelo_carta.py).
+indices:
+  # Índices espectrales de Sentinel-2 (NDVI, EVI, SAVI, ARVI, GLI, GCI, RGR,
+  # SIPI, NBRI y NDRE): serie por pasada despejada y mapas de la última fecha.
+  # Usa las mismas credenciales y el mismo enmascarado que el NDVI (sección cdse).
+  habilitado: true
+  lado_px: 512        # lado mayor de cada mapa
+
 suelo_carta:
   habilitado: true
   url: "https://idecor-ws.mapascordoba.gob.ar/geoserver/idecor/wfs"

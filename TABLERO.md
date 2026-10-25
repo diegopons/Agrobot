@@ -90,6 +90,36 @@ de partida; cargarle los valores medidos lo reemplaza en ese lote. La carta se
 consulta una vez por polígono: si el servicio de IDECOR se cae, ese día se usa
 el perfil por defecto y se reintenta en la corrida siguiente.
 
+## Índices
+
+Índices espectrales de Sentinel-2, calculados en cada corrida con las bandas de
+Copernicus Data Space (los mismos del script de Earth Engine de la EEA
+Manfredi, más el NDRE de borde rojo):
+
+| Índice | Bandas | Para qué |
+|---|---|---|
+| NDVI | B8, B4 | vigor y cobertura verde |
+| NDRE | B8A, B5 | clorofila y nitrógeno; no se satura como el NDVI |
+| EVI | B8, B4, B2 | vigor en canopeos densos, corrige suelo y atmósfera |
+| SAVI | B8, B4 | vigor con poca cobertura (L = 0,5) |
+| ARVI | B8, B4, B2 | vigor corregido por aerosoles |
+| GCI | B8, B3 | clorofila |
+| GLI | B3, B4, B2 | proporción de verde con bandas visibles |
+| SIPI | B8, B2, B4 | carotenoides/clorofila: estrés y senescencia |
+| RGR | B4, B3 | rojo/verde: sube con senescencia o suelo expuesto |
+| NBRI | B8, B12 | vegetación seca, quemas, rastrojo |
+
+- **Valor del lote**: la mediana de los píxeles despejados, con el rango entre
+  los percentiles 10 y 90. Se usa la mediana porque los índices que son
+  cocientes (SIPI, GCI, RGR) se disparan sobre suelo desnudo.
+- **Nubes**: se enmascaran píxel a píxel con la banda SCL, igual que el NDVI
+  del balance, y solo cuentan las pasadas con al menos el 70 % del lote
+  despejado. En los mapas, lo gris es nube o sombra.
+- **Mapas**: los de la última pasada despejada, uno por índice y uno en color
+  natural.
+- A diferencia del script de Earth Engine, el EVI usa reflectancia (0–1), que
+  es para lo que está escrita la fórmula.
+
 ## Parámetros
 
 Todo lo propio del lote, y el botón para guardarlo.

@@ -283,6 +283,17 @@
   border:1px solid var(--tinta);background:#fff;color:var(--tinta);max-width:260px}
 button.chico{display:inline-block;width:auto;padding:8px 12px;font-size:13.5px}
 .mal{color:var(--critico)}
+
+/* ---- índices espectrales ---- */
+.ix-botones{display:flex;flex-wrap:wrap;gap:6px}
+.ix-botones button{display:inline-block;width:auto;padding:7px 12px;font-size:13.5px;
+  border-color:var(--linea);background:#fff}
+.ix-botones button[aria-pressed="true"]{background:var(--agua);border-color:var(--agua);color:#fff}
+#ix-mapa{width:100%;max-width:640px;border:1px solid var(--linea);display:none;
+  image-rendering:pixelated;background:#fff}
+.ix-leyenda{max-width:640px;margin-top:8px;font-size:12px;color:var(--tinta-suave)}
+.ix-leyenda .barra{height:12px;border:1px solid var(--linea)}
+.ix-leyenda .extremos{display:flex;justify-content:space-between;font-variant-numeric:tabular-nums}
 </style>
 </head>
 <body>
@@ -319,6 +330,7 @@ button.chico{display:inline-block;width:auto;padding:8px 12px;font-size:13.5px}
   <nav class="secciones" role="tablist">
     <button role="tab" aria-selected="true"  data-seccion="estado">Estado</button>
     <button role="tab" aria-selected="false" data-seccion="lote">Lote</button>
+    <button role="tab" aria-selected="false" data-seccion="indices">Índices</button>
     <button role="tab" aria-selected="false" data-seccion="correr">Parámetros</button>
     <button role="tab" aria-selected="false" data-seccion="cuenta">Cuenta</button>
   </nav>
@@ -657,6 +669,56 @@ button.chico{display:inline-block;width:auto;padding:8px 12px;font-size:13.5px}
     </div>
   </div>
 
+  </section>
+
+  <!-- ======================= ÍNDICES ESPECTRALES ======================= -->
+  <section class="seccion" id="s-indices">
+    <div class="panel">
+      <h2>Índices espectrales</h2>
+      <p class="subtitulo" id="ix-sub">Sentinel-2 (Copernicus) · última pasada con el lote despejado</p>
+      <div class="ix-botones" id="ix-botones"></div>
+      <div id="ix-vacio" class="aviso" style="margin-top:16px">
+        Todavía no hay índices para este lote. Se calculan en la próxima corrida del sistema.
+      </div>
+      <div class="cols" id="ix-contenido" style="margin-top:18px;display:none">
+        <div>
+          <img id="ix-mapa" alt="Mapa del índice sobre el lote">
+          <div id="ix-mapa-vacio" class="aviso">El mapa de esta fecha todavía no está disponible.</div>
+          <div class="ix-leyenda" id="ix-leyenda"></div>
+        </div>
+        <div>
+          <p class="estado-titulo" id="ix-nombre"></p>
+          <p class="estado-condicion" id="ix-valor" style="color:var(--agua)"></p>
+          <p class="estado-pct" id="ix-rango"></p>
+          <dl class="cifras">
+            <div class="cifra"><dt>Fecha de la imagen</dt><dd id="ix-fecha"></dd></div>
+            <div class="cifra"><dt>Lote despejado</dt><dd id="ix-cob"></dd></div>
+            <div class="cifra"><dt>Cambio contra la pasada anterior</dt><dd id="ix-delta"></dd></div>
+          </dl>
+          <p id="ix-desc" style="font-size:14px;line-height:1.5;margin-top:16px"></p>
+          <p class="pista" id="ix-formula" style="font-size:12.5px;color:var(--tinta-suave);
+             font-family:ui-monospace,Menlo,Consolas,monospace"></p>
+        </div>
+      </div>
+    </div>
+
+    <section style="margin-top:24px">
+      <h2>Evolución en la campaña</h2>
+      <p class="subtitulo">Mediana del lote en cada pasada despejada; la franja va del percentil 10 al 90</p>
+      <div class="panel"><div id="ix-serie"></div></div>
+    </section>
+
+    <section>
+      <h2>Últimas pasadas</h2>
+      <p class="subtitulo">Mediana del lote de cada índice</p>
+      <div class="panel" style="overflow-x:auto"><table id="ix-tabla"></table></div>
+    </section>
+
+    <p class="pista" style="font-size:12.5px;color:var(--tinta-suave)">
+      Reflectancia de Sentinel-2 L2A de Copernicus Data Space, con nubes, sombras y agua enmascaradas
+      píxel a píxel (banda SCL). Solo cuentan las pasadas con al menos el 70 % del lote despejado.
+      En los mapas, lo gris es nube o sombra detectada.
+    </p>
   </section>
 
   <!-- ======================= CUENTA ======================= -->
@@ -1690,7 +1752,7 @@ const estadoDe = l => l ? (Array.isArray(l.estado_lote) ? l.estado_lote[0] : l.e
 
 async function cargarLotes(seleccionar){
   const {data, error} = await sb.from('lotes')
-    .select('*, estado_lote(serie, ultima_fecha_procesada, ultima_corrida, ultimo_error, suelo_carta)')
+    .select('*, estado_lote(serie, ultima_fecha_procesada, ultima_corrida, ultimo_error, suelo_carta, indices_meta)')
     .order('nombre');
   if(error){
     document.getElementById('meta').textContent = 'No se pudieron leer los lotes: ' + error.message;
@@ -1737,6 +1799,7 @@ function elegirLote(id){
       'viene de la Carta de Suelos. Si cargás la calicata, reemplaza a la carta en este lote.</span>';
   }
   pintarSuelo(LOTE);
+  cargarIndices(LOTE);
   if(LOTE.geometria) ponerEnMapa(LOTE.geometria);
   cargarResultados(LOTE);
   cargarMosaico(LOTE);
@@ -1756,6 +1819,7 @@ function nuevoLote(){
   cargarMosaico(null);
   cargarRiegos(null);
   pintarSuelo(null);
+  cargarIndices(null);
   sinDatos('Lote nuevo: dibujalo en la pestaña «Lote», completá los parámetros y guardalo.');
   document.querySelector('nav.secciones button[data-seccion="lote"]').click();
 }
@@ -1916,6 +1980,172 @@ function pintarSuelo(lote){
   document.getElementById('s-limitantes').innerHTML = filasLim
     ? '<tbody>' + filasLim + '</tbody>'
     : '<tbody><tr><td style="color:var(--tinta-suave)">Sin datos de limitantes para este lote.</td></tr></tbody>';
+}
+
+// ===================== índices espectrales =====================
+// Mismo orden y fórmulas que src/indices.py (bandas de Sentinel-2 en reflectancia)
+const INDICES = [
+  ['ndvi', 'NDVI', '(B8 − B4) / (B8 + B4)',
+   'Vigor y cobertura verde. Hasta 0,2 es suelo o rastrojo; entre 0,2 y 0,5, cultivo en crecimiento; ' +
+   'por encima de 0,6, canopeo denso. Con mucha biomasa se satura y deja de diferenciar.'],
+  ['ndre', 'NDRE', '(B8A − B5) / (B8A + B5)',
+   'Borde rojo: responde a la clorofila y al nitrógeno de la hoja. Sigue marcando diferencias cuando el ' +
+   'NDVI ya se saturó, por eso sirve para detectar deficiencias en cultivos con mucho follaje. Resolución de 20 m.'],
+  ['evi', 'EVI', '2,5 · (B8 − B4) / (B8 + 6·B4 − 7,5·B2 + 1)',
+   'Como el NDVI, pero corrige el efecto del suelo y de la atmósfera y se satura menos en canopeos densos.'],
+  ['savi', 'SAVI', '1,5 · (B8 − B4) / (B8 + B4 + 0,5)',
+   'NDVI ajustado por el brillo del suelo (L = 0,5). Más confiable con poca cobertura, al inicio del ciclo.'],
+  ['arvi', 'ARVI', '(B8 − 2·B4 + B2) / (B8 + 2·B4 + B2)',
+   'NDVI corregido por aerosoles con la banda azul: más estable con humo, polvo o bruma.'],
+  ['gci', 'GCI', 'B8 / B3 − 1',
+   'Contenido de clorofila de la hoja, asociado al nitrógeno. Valores más altos, más clorofila.'],
+  ['gli', 'GLI', '((B3 − B4) + (B3 − B2)) / (2·B3 + B4 + B2)',
+   'Índice de hoja verde con bandas visibles: proporción de verde en el lote. Cerca de 0 es suelo.'],
+  ['sipi', 'SIPI', '(B8 − B2) / (B8 − B4)',
+   'Relación entre carotenoides y clorofila. Valores altos indican estrés o senescencia.'],
+  ['rgr', 'RGR', 'B4 / B3',
+   'Cociente rojo/verde. Sube con la senescencia, el estrés o el suelo expuesto, y baja con follaje verde activo ' +
+   '(en el mapa la escala está invertida: verde es valor bajo).'],
+  ['nbri', 'NBRI', '(B8 − B12) / (B8 + B12)',
+   'Contraste entre infrarrojo cercano y medio (2,2 µm): baja con vegetación seca, quemas o rastrojo, ' +
+   'y sube con follaje verde e hidratado.'],
+  ['rgb', 'Color natural', 'B4, B3, B2', 'Imagen en color verdadero de la misma fecha, para ver el lote tal cual.'],
+];
+const IX = {lote: null, filas: [], meta: null, clave: 'ndvi', urls: {}};
+const nombreIx = k => (INDICES.find(i => i[0] === k) || [k, k])[1];
+const fmtIx = v => v == null ? '—' : Number(v).toLocaleString('es-AR', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+
+(function botonesIndices(){
+  document.getElementById('ix-botones').innerHTML = INDICES.map(([k, n]) =>
+    `<button data-ix="${k}" aria-pressed="${k === 'ndvi'}">${n}</button>`).join('');
+  document.getElementById('ix-botones').addEventListener('click', ev => {
+    const k = ev.target.dataset && ev.target.dataset.ix;
+    if(!k) return;
+    IX.clave = k;
+    document.querySelectorAll('#ix-botones button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.ix === k)));
+    pintarIndice();
+  });
+})();
+
+async function cargarIndices(lote){
+  IX.lote = lote; IX.filas = []; IX.urls = {};
+  IX.meta = lote ? (estadoDe(lote) || {}).indices_meta : null;
+  if(lote){
+    const {data} = await sb.from('indices_lote').select('fecha, cobertura_pct, valores')
+      .eq('lote_id', lote.id).order('fecha');
+    if(IX.lote !== lote) return;
+    IX.filas = data || [];
+  }
+  pintarIndice();
+  pintarTablaIndices();
+}
+
+async function urlMapaIndice(clave){
+  const lote = IX.lote;
+  if(!lote || !IX.meta || !(IX.meta.mapas || []).includes(clave)) return null;
+  if(IX.urls[clave]) return IX.urls[clave];
+  const {data, error} = await sb.storage.from('mosaicos')
+    .createSignedUrl(`${lote.usuario_id}/${lote.id}/indices/${clave}.png`, 3600);
+  if(error || !data) return null;
+  // la fecha va en la URL para que el navegador no muestre el mapa de una pasada anterior
+  return IX.urls[clave] = data.signedUrl + '&v=' + encodeURIComponent(IX.meta.fecha_mapa || '');
+}
+
+async function pintarIndice(){
+  const $ = id => document.getElementById(id);
+  const hay = IX.filas.length > 0;
+  $('ix-vacio').style.display = hay ? 'none' : 'block';
+  $('ix-contenido').style.display = hay ? 'grid' : 'none';
+  if(!hay){ $('ix-serie').innerHTML = ''; return; }
+
+  const k = IX.clave, def = INDICES.find(i => i[0] === k);
+  const ultima = IX.filas[IX.filas.length - 1];
+  const fechaMapa = (IX.meta && IX.meta.fecha_mapa) || ultima.fecha;
+  const fila = IX.filas.find(f => f.fecha === fechaMapa) || ultima;
+  const v = (fila.valores || {})[k];
+  const previa = IX.filas.filter(f => f.fecha < fila.fecha && f.valores && f.valores[k]).pop();
+
+  $('ix-sub').textContent = 'Sentinel-2 (Copernicus) · ' + IX.filas.length + ' pasadas despejadas desde la siembra';
+  $('ix-nombre').textContent = def[1];
+  $('ix-fecha').textContent = fechaLarga(new Date(fila.fecha + 'T00:00:00'));
+  $('ix-cob').textContent = num(fila.cobertura_pct, 0) + ' %';
+  $('ix-desc').textContent = def[3];
+  $('ix-formula').textContent = k === 'rgb' ? 'Bandas ' + def[2] : def[1] + ' = ' + def[2];
+  if(k === 'rgb'){
+    $('ix-valor').textContent = ''; $('ix-rango').textContent = ''; $('ix-delta').textContent = '—';
+  } else {
+    $('ix-valor').textContent = v ? fmtIx(v.mediana) : '—';
+    $('ix-rango').textContent = v ? 'mediana del lote · entre ' + fmtIx(v.p10) + ' y ' + fmtIx(v.p90) +
+                                    ' en el 80 % de la superficie' : 'sin dato en esta fecha';
+    $('ix-delta').textContent = (v && previa)
+      ? (v.mediana - previa.valores[k].mediana >= 0 ? '+' : '') + fmtIx(v.mediana - previa.valores[k].mediana) +
+        ' (desde el ' + fechaCorta(new Date(previa.fecha + 'T00:00:00')) + ')'
+      : '—';
+  }
+
+  const ley = IX.meta && IX.meta.leyendas && IX.meta.leyendas[k];
+  $('ix-leyenda').innerHTML = ley
+    ? `<div class="barra" style="background:linear-gradient(to right, ${ley.paleta.join(',')})"></div>
+       <div class="extremos"><span>${fmtIx(ley.min)} o menos</span><span>${fmtIx(ley.max)} o más</span></div>`
+    : '';
+
+  const img = $('ix-mapa'), vacio = $('ix-mapa-vacio');
+  img.style.display = 'none'; vacio.style.display = 'block';
+  const url = await urlMapaIndice(k);
+  if(url && IX.clave === k){
+    img.onload = () => { img.style.display = 'block'; vacio.style.display = 'none'; };
+    img.src = url;
+  }
+  dibujarSerieIndice(k);
+}
+
+function dibujarSerieIndice(k){
+  const cont = document.getElementById('ix-serie');
+  if(k === 'rgb'){ cont.innerHTML = '<p class="subtitulo">Elegí un índice para ver su evolución.</p>'; return; }
+  const datos = IX.filas.filter(f => f.valores && f.valores[k])
+    .map(f => ({fecha: new Date(f.fecha + 'T00:00:00'), ...f.valores[k]}));
+  if(!datos.length){ cont.innerHTML = ''; return; }
+  const W = 1020, H = 230, mIzq = 50, mDer = 20, mSup = 14, mInf = 30;
+  const ancho = W - mIzq - mDer, alto = H - mSup - mInf;
+  const t0 = datos[0].fecha.getTime(), t1 = Math.max(t0 + 86400000, datos[datos.length - 1].fecha.getTime());
+  const vals = datos.flatMap(d => [d.p10, d.p90, d.mediana]).filter(v => v != null);
+  let lo = Math.min(...vals), hi = Math.max(...vals);
+  if(hi - lo < 1e-6){ lo -= 0.1; hi += 0.1; }
+  const pad = (hi - lo) * 0.08; lo -= pad; hi += pad;
+  const px = f => mIzq + (f.getTime() - t0) / (t1 - t0) * ancho;
+  const py = v => mSup + alto - (v - lo) / (hi - lo) * alto;
+
+  let s = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Evolución de ${nombreIx(k)} en la campaña">`;
+  for(let i = 0; i <= 4; i++){
+    const v = lo + (hi - lo) * i / 4;
+    s += `<line x1="${mIzq}" y1="${py(v)}" x2="${mIzq + ancho}" y2="${py(v)}" stroke="var(--linea)"/>`;
+    s += `<text x="${mIzq - 8}" y="${py(v) + 4}" font-size="11" fill="var(--tinta-suave)" text-anchor="end">${fmtIx(v)}</text>`;
+  }
+  const conRango = datos.filter(d => d.p10 != null && d.p90 != null);
+  if(conRango.length > 1){
+    s += `<path d="M ${conRango.map(d => px(d.fecha) + ' ' + py(d.p90)).join(' L ')} L ` +
+         `${conRango.slice().reverse().map(d => px(d.fecha) + ' ' + py(d.p10)).join(' L ')} Z" fill="var(--adecuado)" opacity=".18"/>`;
+  }
+  s += `<path d="M ${datos.map(d => px(d.fecha) + ' ' + py(d.mediana)).join(' L ')}" fill="none" stroke="var(--adecuado)" stroke-width="2.2" stroke-linejoin="round"/>`;
+  datos.forEach(d => { s += `<circle cx="${px(d.fecha)}" cy="${py(d.mediana)}" r="3" fill="var(--adecuado)"><title>${fechaCorta(d.fecha)}: ${fmtIx(d.mediana)}</title></circle>`; });
+  const pasos = Math.min(7, datos.length);
+  for(let i = 0; i < pasos; i++){
+    const d = datos[Math.round(i * (datos.length - 1) / Math.max(1, pasos - 1))];
+    s += `<text x="${px(d.fecha)}" y="${H - 9}" font-size="11" fill="var(--tinta-suave)" text-anchor="middle">${fechaCorta(d.fecha)}</text>`;
+  }
+  cont.innerHTML = s + '</svg>';
+}
+
+function pintarTablaIndices(){
+  const claves = INDICES.map(i => i[0]).filter(k => k !== 'rgb');
+  const ult = IX.filas.slice(-10).reverse();
+  document.getElementById('ix-tabla').innerHTML = ult.length
+    ? '<thead><tr><th>Fecha</th><th>Despejado</th>' + claves.map(k => `<th>${nombreIx(k)}</th>`).join('') +
+      '</tr></thead><tbody>' + ult.map(f => '<tr><td>' + fechaCorta(new Date(f.fecha + 'T00:00:00')) + '</td>' +
+      '<td>' + num(f.cobertura_pct, 0) + ' %</td>' +
+      claves.map(k => '<td>' + fmtIx(f.valores && f.valores[k] && f.valores[k].mediana) + '</td>').join('') +
+      '</tr>').join('') + '</tbody>'
+    : '';
 }
 
 // ===================== riegos =====================

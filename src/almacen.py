@@ -397,8 +397,18 @@ class AlmacenSupabase:
         if solo_id:
             params["id"] = f"eq.{solo_id}"
 
+        try:
+            filas = self.db.select("lotes", params)
+        except ErrorSupabase as e:
+            if solo_id and "22P02" in str(e):
+                raise ErrorSupabase(
+                    f"El id de lote '{solo_id}' no es válido: tiene que tener 36 caracteres, "
+                    "de la forma xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx. Revisá que se haya "
+                    "copiado completo.") from e
+            raise
+
         lotes = []
-        for fila in self.db.select("lotes", params):
+        for fila in filas:
             if solo_pendientes and not self._pendiente(fila):
                 continue
             perfil = fila.get("perfil") or {}

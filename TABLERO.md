@@ -1,16 +1,26 @@
 # La aplicación web
 
-Todo el sistema se maneja desde una sola página, publicada con GitHub Pages:
+Todo el sistema se maneja desde una sola página, publicada con GitHub Pages
+desde la carpeta `docs/`. Para conectarla con Supabase, ver
+[SUPABASE.md](SUPABASE.md).
 
-**https://diegopons.github.io/balance-hidrico-lote20/**
+## Ingreso
 
-Tiene tres pestañas.
+Cada persona entra con su correo: la página le manda un enlace y con eso
+queda adentro, sin contraseña. Cada cuenta ve **solo sus lotes**; eso lo
+garantiza la base de datos, no la página.
+
+Arriba está el **selector de lotes**: cambia de lote en todas las pestañas a
+la vez. **+ Nuevo lote** arranca uno en blanco. La página recuerda el último
+lote elegido en ese navegador.
+
+Tiene cuatro pestañas.
 
 ---
 
 ## Estado
 
-El resultado del último día calculado.
+El resultado del último día calculado del lote elegido.
 
 - **Condición** (Óptimo / Adecuado / Déficit / Crítico) y el porcentaje de
   agua útil.
@@ -25,7 +35,23 @@ El resultado del último día calculado.
 - **Vigor del cultivo**: la curva de NDVI.
 - **Últimos catorce días** en tabla.
 
-Si corresponde regar, aparece la lámina sugerida.
+Si corresponde regar, aparece la lámina sugerida, con el umbral y la
+eficiencia de ese lote.
+
+### Riegos aplicados
+
+Al pie de la pestaña se carga cada riego: fecha, lámina en milímetros (con
+coma o punto) y una nota opcional. Hay uno por día y por lote; cargar otro el
+mismo día lo reemplaza.
+
+- El riego **entra al balance como la lluvia, por separado**: hasta 15 mm
+  entra completo, y por encima se descuenta el escurrimiento con la misma
+  fórmula (2,43 · R^0,667). La serie guarda el aplicado (`riego_mm`) y el
+  que entró al perfil (`riego_efectivo_mm`).
+- Lo normal es cargar el riego de un día que **ya está calculado**. En ese
+  caso, la corrida de la hora siguiente vuelve al día anterior al riego y
+  recalcula desde ahí. Los días previos no cambian y no se abre una serie
+  nueva. Lo mismo al corregir o borrar un riego.
 
 ## Lote
 
@@ -40,106 +66,90 @@ El polígono que define el área de cálculo.
   valor raro en la curva fue una nube sobre parte del lote o algo real en
   todo el cultivo. Las zonas grises son nube o sombra detectada.
 
-El mosaico se genera en cada corrida y se guarda en `docs/ndvi_mosaico.png`.
-Se puede desactivar en `config.yaml` (`mapas.habilitado: false`) si no se
-quiere; ahorra unos segundos por corrida.
+## Parámetros
 
-## Parámetros y ejecución
-
-Donde se carga todo y se dispara el cálculo.
+Todo lo propio del lote, y el botón para guardarlo.
 
 | Campo | Qué hace |
 |---|---|
+| Nombre del lote | Aparece en el aviso de Telegram y es como lo nombrás al bot. No se puede repetir dentro de la misma cuenta |
 | Fecha de siembra | Desde cuándo calcular |
 | Agua útil inicial | Lámina disponible estimada a la siembra |
 | Profundidad de raíz inicial | En centímetros |
-| Calcular hasta | Fecha de fin. Vacío = hasta donde haya datos |
 | Umbral de riego | % de agua útil que dispara la alerta |
-| Nombre del lote | Aparece en el aviso de Telegram |
-| Cuándo avisar | Modo de notificación (ver TELEGRAM.md) |
+| Eficiencia de aplicación | Para pasar de lámina neta a bruta |
+| Cuándo avisar | Modo de notificación (ver TELEGRAM.md), o «Nunca» |
+| Calcular este lote | Destildado, el lote queda pausado y conserva su serie |
+| Recalcular desde la siembra | Fuerza el recálculo en la próxima corrida |
 
-Los campos vacíos usan lo que diga `config.yaml`, así que las corridas
-automáticas de las 6 AM siguen funcionando sin tocar nada.
+Debajo está la **calicata de siembra**. Se guarda junto con el lote, y solo
+si la tocaste: guardar el lote sin abrir la calicata no le cambia el perfil.
 
-Y tres casillas:
+**Guardar lote** escribe todo de una vez. Los resultados aparecen solos:
 
-- **Calcular hasta hoy**: pide hasta la fecha de ejecución. Los días que
-  AgERA5 todavía no publicó quedan fuera y entran en la corrida siguiente.
-- **Enviar el resumen por Telegram**: fuerza el aviso aunque no haya días
-  nuevos y aunque el modo no corresponda.
-- **Reiniciar el balance desde cero**: descarta lo acumulado y recalcula.
+- un lote **nuevo o modificado** se calcula en la corrida de la hora
+  siguiente;
+- después, todos los lotes se actualizan **una vez por día**, a las 6 de la
+  mañana.
 
----
+**Borrar lote** lo elimina con toda su serie. Para dejar de calcularlo sin
+perder nada, destildá «Calcular este lote».
 
-## El botón de guardar y ejecutar
+## Cuenta
 
-Escribe el lote en el repositorio y lanza una corrida, todo de una.
-
-Necesita un **token de GitHub** *fine-grained*, limitado a este repositorio,
-con permisos **Contents** y **Actions** en lectura y escritura. Se crea en:
-GitHub → Settings (de la cuenta) → Developer settings → Personal access
-tokens → Fine-grained tokens.
-
-El token se usa solo desde el navegador: no viaja a ningún otro lado ni
-queda en el repositorio. Con la casilla "recordarlo" queda guardado en ese
-navegador; sin ella, se olvida al cerrar la pestaña.
-
-> El token da acceso de escritura a este repositorio. Está bien en tu propia
-> máquina, pero no lo dejes guardado en una compartida, y si alguna vez se
-> expone, revocalo desde GitHub: se hace en diez segundos.
+- **Vincular Telegram**: genera un código de un solo uso, válido 15 minutos.
+  El enlace abre el bot y lo manda solo; si no, se le escribe
+  `/vincular CODIGO`. Desde ahí, los avisos de todos tus lotes llegan a ese
+  chat, y el bot responde ahí sobre ellos (ver N8N.md).
+- **Nombre**: con el que te saluda el bot.
 
 ---
 
-## Cuándo se reinicia solo el balance
+## Cuándo se recalcula solo el balance
 
-El sistema guarda una huella del lote y de la fecha de siembra. Si cualquiera
-de los dos cambia, el balance acumulado ya no corresponde: se reinicia desde
-cero automáticamente.
+El sistema guarda una huella del polígono, la fecha de siembra, las fuentes
+de clima y el perfil de suelo. Si cualquiera cambia, el balance acumulado ya
+no corresponde: se recalcula desde la siembra automáticamente.
 
-En ese caso **la serie anterior no se pierde**: se renombra a
-`balance_hidrico_lote20_hasta_AAAAMMDD-HHMMSS.csv` dentro de `data/`, y la
-nueva arranca limpia. Antes de este cambio las dos series se mezclaban en el
-mismo archivo y el gráfico mostraba una curva continua que nunca existió.
+Lo mismo pasa al cambiar el agua útil o la raíz inicial de un lote ya
+calculado: solo se usan el día de la siembra, así que la página marca el
+recálculo para que el cambio tenga efecto.
+
+En todos los casos **la serie anterior no se pierde**: queda guardada como
+una serie anterior del lote (`balance_diario.serie`), y la página muestra la
+vigente. Mezclarlas daría una curva continua que nunca existió.
 
 ---
 
 ## Verlo sin publicarlo
 
-Descargá el repositorio (botón verde **Code** → **Download ZIP**),
-descomprimilo, entrá a `docs` y abrí `index.html`.
-
-Si aparece vacío al abrirlo con doble clic, es una restricción del navegador
-con archivos locales: abrí una consola en `docs`, ejecutá
-`python -m http.server`, y entrá a `http://localhost:8000`.
+Abrí una consola en `docs`, ejecutá `python -m http.server`, y entrá a
+`http://localhost:8000`. Para poder ingresar, agregá esa dirección en
+Supabase → Authentication → URL Configuration → Redirect URLs.
 
 ---
 
 ## Qué queda expuesto
 
 El repositorio es público, que es lo que permite publicar la página sin
-costo. Eso significa:
+costo. Desde el modo multiusuario:
 
-**No queda expuesto**: las claves de Copernicus ni el token de Telegram.
-Viven en los Secrets de GitHub, cifrados.
+**No queda expuesto**: los lotes, las series, los resúmenes ni los mosaicos.
+Viven en Supabase y cada cuenta accede solo a lo suyo. Tampoco las claves:
+están en los Secrets de GitHub y en n8n.
 
-**Sí queda visible**: la ubicación del lote, la serie de datos y los
-registros de cada corrida.
+**Sí queda visible**: el código y `docs/config.js`, que tiene la URL del
+proyecto de Supabase y la clave *anon*. Están pensadas para ser públicas: sin
+una sesión iniciada no dan acceso a ningún dato.
 
-**La página no tiene contraseña**: quien tenga el enlace, entra.
+> Los datos del lote 20 anteriores a la migración siguen en el repositorio y
+> en su historial. Ver SUPABASE.md, «Lo que queda público y lo que no».
 
 ---
 
-## Parámetros duplicados
+## Un valor fijo en la página
 
-El tablero tiene su propia copia de tres valores, al principio del bloque
-`<script>` de `docs/index.html`:
-
-```javascript
-const UMBRAL_RIEGO = 50;   // % de agua útil que dispara la alerta
-const EFICIENCIA = 0.85;   // eficiencia de aplicación del riego
-const PROF_MAX = 200;      // profundidad del perfil, en cm
-```
-
-Si los cambiás en `config.yaml` (que es lo que usan el cálculo y las alertas),
-acordate de cambiarlos también acá, o el tablero va a mostrar un criterio
-distinto del que aplica el sistema. Es la única duplicación que quedó.
+`PROF_MAX = 200` (profundidad del perfil, en cm), al principio del bloque
+`<script>` de `docs/index.html`, define la escala del dibujo del perfil. El
+umbral y la eficiencia ya no están duplicados: la página los toma de cada
+lote.

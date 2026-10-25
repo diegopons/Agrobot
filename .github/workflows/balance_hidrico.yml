@@ -1,61 +1,32 @@
-name: Balance Hídrico Lote 20
+name: Balance Hídrico — todos los lotes
 
 # ============================================================================
 # CUÁNDO SE EJECUTA
 # ============================================================================
 on:
-  # 1) Automático, según horario
   schedule:
-    # Formato cron: minuto hora día-del-mes mes día-de-semana
     # OJO: GitHub usa siempre horario UTC. Argentina = UTC-3.
-    # "0 9 * * *" = todos los días a las 09:00 UTC = 06:00 en Argentina.
+    # 1) Corrida diaria completa: todos los lotes activos de todos los
+    #    usuarios, con los días nuevos. 09:00 UTC = 06:00 en Argentina, cuando
+    #    la estación del INTA ya consolidó el dato del día.
     - cron: "0 9 * * *"
+    # 2) Cada hora: solo lotes nuevos o modificados desde el tablero, para que
+    #    el usuario no tenga que esperar al día siguiente para ver su lote.
+    - cron: "30 * * * *"
 
-  # 2) Manual, con un botón en la pestaña "Actions" del repo.
-  #    Los campos de abajo aparecen como un formulario al hacer clic en
-  #    "Run workflow". Dejarlos vacíos = usar lo que diga config.yaml.
+  # Manual, con un botón en la pestaña "Actions" del repo.
   workflow_dispatch:
     inputs:
-      fecha_siembra:
-        description: "Fecha de siembra (AAAA-MM-DD). Vacío = la del config"
-        required: false
-        type: string
-      au_inicial_mm:
-        description: "Agua útil inicial, en mm"
-        required: false
-        type: string
-      prof_raiz_inicial_cm:
-        description: "Profundidad de raíz inicial, en cm"
+      lote_id:
+        description: "Id del lote (vacío = todos). Se copia del tablero o de Supabase"
         required: false
         type: string
       fecha_fin:
         description: "Calcular hasta esta fecha (AAAA-MM-DD). Vacío = hasta donde haya datos"
         required: false
         type: string
-      rezago_clima:
-        description: "Días de rezago de AgERA5 (por defecto 10)"
-        required: false
-        type: string
-      umbral_riego_pct:
-        description: "Umbral de riego, en % de agua útil"
-        required: false
-        type: string
-      nombre_lote:
-        description: "Nombre del lote para el aviso de Telegram"
-        required: false
-        type: string
-      modo_aviso:
-        description: "Cuándo avisar por Telegram"
-        required: false
-        type: choice
-        default: "(usar config)"
-        options:
-          - "(usar config)"
-          - "cruce"
-          - "deficit"
-          - "siempre"
       reiniciar_estado:
-        description: "Reiniciar el balance desde cero (descarta lo acumulado)"
+        description: "Recalcular desde la siembra (solo con un lote indicado)"
         required: false
         type: boolean
         default: false
@@ -65,107 +36,76 @@ on:
         type: boolean
         default: false
 
-# Permiso necesario para que el workflow pueda escribir en el repo
-# (guardar el CSV y el estado actualizados).
+# Dos corridas a la vez sobre los mismos lotes podrían escribir el mismo día
+# dos veces; la segunda espera a que termine la primera.
+concurrency:
+  group: balance-hidrico
+  cancel-in-progress: false
+
 permissions:
-  contents: write
+  contents: read
+  actions: write     # solo para el paso que mantiene activo el horario
 
 jobs:
   balance-hidrico:
     runs-on: ubuntu-latest
+    timeout-minutes: 120
 
     steps:
-      # ---------------------------------------------------------------
-      # 1. Descargar el contenido del repositorio a la máquina temporal
-      # ---------------------------------------------------------------
       - name: Descargar el repositorio
         uses: actions/checkout@v4
 
-      # ---------------------------------------------------------------
-      # 2. Instalar Python
-      # ---------------------------------------------------------------
       - name: Instalar Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
           cache: "pip"
 
-      # ---------------------------------------------------------------
-      # 3. Instalar las librerías del requirements.txt
-      # ---------------------------------------------------------------
       - name: Instalar dependencias
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
       # ---------------------------------------------------------------
-      # 4. Correr el balance hídrico
-      #    Las credenciales llegan desde los "Secrets" del repositorio,
-      #    nunca escritas en el código.
+      # Las credenciales llegan desde los "Secrets" del repositorio,
+      # nunca escritas en el código. Los resultados se guardan en
+      # Supabase, no en el repositorio: el repo es público y los lotes
+      # de cada usuario no.
       # ---------------------------------------------------------------
       - name: Ejecutar balance hídrico
         env:
+          BH_ALMACEN: supabase
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           CDSE_CLIENT_ID: ${{ secrets.CDSE_CLIENT_ID }}
           CDSE_CLIENT_SECRET: ${{ secrets.CDSE_CLIENT_SECRET }}
           CDSAPI_URL: ${{ secrets.CDSAPI_URL }}
           CDSAPI_KEY: ${{ secrets.CDSAPI_KEY }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-          # Parámetros del formulario. En una corrida programada llegan
-          # vacíos y el script usa config.yaml.
-          BH_FECHA_SIEMBRA: ${{ inputs.fecha_siembra }}
-          BH_AU_INICIAL_MM: ${{ inputs.au_inicial_mm }}
-          BH_PROF_RAIZ_INICIAL_CM: ${{ inputs.prof_raiz_inicial_cm }}
+          BH_SOLO_PENDIENTES: ${{ github.event.schedule == '30 * * * *' }}
+          BH_LOTE_ID: ${{ inputs.lote_id }}
           BH_FECHA_FIN: ${{ inputs.fecha_fin }}
-          BH_REZAGO_CLIMA: ${{ inputs.rezago_clima }}
-          BH_UMBRAL_RIEGO_PCT: ${{ inputs.umbral_riego_pct }}
-          BH_NOMBRE_LOTE: ${{ inputs.nombre_lote }}
-          BH_MODO_AVISO: ${{ inputs.modo_aviso == '(usar config)' && '' || inputs.modo_aviso }}
           BH_REINICIAR_ESTADO: ${{ inputs.reiniciar_estado }}
           BH_ENVIAR_RESUMEN: ${{ inputs.enviar_resumen }}
         run: python -m src.main
 
-      # ---------------------------------------------------------------
-      # 5. Copiar el CSV a docs/ para que lo lea el tablero web
-      #    (GitHub Pages publica solo el contenido de docs/)
-      # ---------------------------------------------------------------
-      - name: Actualizar los datos del tablero
-        run: |
-          mkdir -p docs
-          if [ -f data/balance_hidrico_lote20.csv ]; then
-            cp data/balance_hidrico_lote20.csv docs/balance_hidrico_lote20.csv
-          fi
+      # GitHub desactiva los horarios de un repo público tras 60 días sin
+      # actividad. Antes los mantenía vivos el commit diario de resultados;
+      # ahora los resultados van a Supabase, así que se vuelve a habilitar el
+      # workflow por la API en cada corrida diaria.
+      - name: Mantener activo el horario
+        if: github.event_name == 'schedule' && github.event.schedule == '0 9 * * *'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh api -X PUT "repos/${{ github.repository }}/actions/workflows/balance_hidrico.yml/enable"
 
-      # ---------------------------------------------------------------
-      # 6. Guardar los resultados de vuelta en el repositorio
-      #    Así el estado y el CSV histórico sobreviven entre corridas
-      #    (la máquina temporal se destruye al terminar).
-      # ---------------------------------------------------------------
-      - name: Guardar resultados en el repositorio
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add data/ logs/ docs/
-          # Si no hubo días nuevos, no hay nada que commitear: no es un error.
-          if git diff --staged --quiet; then
-            echo "Sin cambios para guardar (probablemente no había días nuevos)."
-          else
-            git commit -m "Balance hídrico automático - $(date -u +'%Y-%m-%d')"
-            git pull --rebase origin main
-            git push
-          fi
-
-      # ---------------------------------------------------------------
-      # 6. Dejar el CSV y el log también como archivo descargable
-      #    desde la pestaña Actions (útil para revisar una corrida puntual)
-      # ---------------------------------------------------------------
-      - name: Publicar resultados como artefacto
+      # El log queda descargable desde la pestaña Actions. No se publica en
+      # el repo: nombra lotes y usuarios.
+      - name: Guardar el log de la corrida
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: resultados-balance-hidrico
-          path: |
-            data/
-            logs/
-          retention-days: 30
+          name: log-balance-hidrico
+          path: logs/
+          retention-days: 14
           if-no-files-found: ignore

@@ -117,13 +117,18 @@ def cargar_estado(
 
 
 def guardar_estado(
-    path_estado: str | Path, estado: EstadoBalance, huella: str | None = None
+    path_estado: str | Path,
+    estado: EstadoBalance,
+    huella: str | None = None,
+    extra: dict | None = None,
 ) -> None:
     path_estado = Path(path_estado)
     path_estado.parent.mkdir(parents=True, exist_ok=True)
     data = estado.to_dict()
     if huella is not None:
         data["huella"] = huella
+    if extra:
+        data.update(extra)
     with open(path_estado, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2, ensure_ascii=False, default=str)
 

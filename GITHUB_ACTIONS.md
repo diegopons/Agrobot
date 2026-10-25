@@ -1,5 +1,16 @@
 # Correr el balance hídrico en GitHub Actions (guía desde cero)
 
+> **Con varios usuarios (Supabase) esto cambió.** El workflow ya no guarda
+> resultados en el repositorio: los escribe en Supabase. Los Secrets
+> necesarios son `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`,
+> `CDSE_CLIENT_ID`, `CDSE_CLIENT_SECRET` y `TELEGRAM_BOT_TOKEN`
+> (`TELEGRAM_CHAT_ID` ya no se usa). Corre a las 06:00 para todos los lotes
+> y cada hora para los lotes nuevos o modificados, y el formulario de
+> «Run workflow» pide el id de un lote en lugar de los parámetros de inicio,
+> que ahora se cargan en el tablero. Ver [SUPABASE.md](SUPABASE.md). El resto
+> de esta guía (cuentas, Secrets, ver una corrida, errores comunes) sigue
+> valiendo.
+
 Esta guía asume que nunca usaste GitHub. No hace falta saber Git para
 que esto funcione: se puede hacer todo desde el navegador.
 

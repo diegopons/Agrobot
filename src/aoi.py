@@ -119,6 +119,11 @@ def aoi_desde_geojson(data: dict) -> dict:
 
 
 def _armar_resultado(geom) -> dict:
+    # Un polígono sin vértices no falla al leerlo: da 0 ha y un bbox de NaN, y
+    # el error aparecería recién en Copernicus, lejos de su causa.
+    if geom.is_empty:
+        raise ValueError("El polígono del lote está vacío.")
+
     # Área aproximada en hectáreas usando una proyección equiareal simple
     # (suficiente para lotes chicos; para mayor precisión usar una UTM local).
     from pyproj import Geod

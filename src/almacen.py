@@ -228,7 +228,9 @@ class AlmacenLocal:
         )
 
     def ruta_mosaico(self, lote: Lote) -> str:
-        return lote.cfg.get("mapas", {}).get("salida", "docs/ndvi_mosaico.png")
+        ruta = lote.cfg.get("mapas", {}).get("salida", "docs/ndvi_mosaico.png")
+        Path(ruta).parent.mkdir(parents=True, exist_ok=True)
+        return ruta
 
     def publicar_mosaico(self, lote: Lote, ruta: str) -> None:
         pass  # ya quedó en docs/, que es de donde lo lee el tablero

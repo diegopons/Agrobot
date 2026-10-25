@@ -93,10 +93,14 @@ class BaseFalsa:
         filas = [copy.deepcopy(f) for f in self.t[tabla] if self._cumple(f, params)]
         if tabla == "lotes" and "perfil:perfiles" in params.get("select", ""):
             perfiles = {p["id"]: p for p in self.t["perfiles"]}
+            estados = {e["lote_id"]: e for e in self.t["estado_lote"]}
             for f in filas:
                 p = perfiles.get(f["usuario_id"], {})
                 f["perfil"] = {"nombre": p.get("nombre"),
                                "telegram_chat_id": p.get("telegram_chat_id")}
+                e = estados.get(f["id"])
+                f["estado"] = e and {k: e.get(k) for k in
+                                     ("ultima_fecha_procesada", "ultima_corrida")}
         if "order" in params:
             campo = params["order"].split(".")[0]
             filas.sort(key=lambda f: str(f.get(campo)))
@@ -118,6 +122,8 @@ class BaseFalsa:
         for f in self.t[tabla]:
             if self._cumple(f, filtros):
                 f.update(datos)
+                if tabla == "lotes":          # el trigger lotes_actualizado
+                    f["actualizado"] = mod_almacen._ahora()
 
     def delete(self, tabla, filtros):
         self.t[tabla] = [f for f in self.t[tabla] if not self._cumple(f, filtros)]
@@ -134,6 +140,7 @@ def _lote(id_, usuario, nombre, siembra, geometria=CUADRADO, **extra):
         "eficiencia_aplicacion": 0.85, "reposicion_objetivo_pct": 100.0,
         "modo_aviso": "siempre", "suelo": None, "parametros": {}, "activo": True,
         "reiniciar": False, "creado": f"2026-10-0{id_[-1]}",
+        "actualizado": "2026-10-01T00:00:00+00:00",
     }
     fila.update(extra)
     return fila
@@ -171,7 +178,7 @@ def entorno(tmp_path, monkeypatch):
     monkeypatch.setattr(main_mod, "enviar_telegram",
                         lambda tok, chat, msg: enviados.append((chat, msg)) or True)
     for var in ("BH_LOTE_ID", "BH_REINICIAR_ESTADO", "BH_ENVIAR_RESUMEN", "BH_FECHA_FIN",
-                "BH_ALMACEN", "SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY", "TELEGRAM_CHAT_ID"):
+                "BH_ALMACEN", "BH_SOLO_PENDIENTES", "SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY", "TELEGRAM_CHAT_ID"):
         monkeypatch.delenv(var, raising=False)
     monkeypatch.setenv("CDSE_CLIENT_ID", "x")
     monkeypatch.setenv("CDSE_CLIENT_SECRET", "y")
@@ -327,6 +334,27 @@ def test_reiniciar_sin_lote_no_recalcula_a_todos(entorno, supabase, monkeypatch)
     main_mod.main(entorno["cfg"])
     assert _estado(supabase, "l2")["serie"] == 2
     assert _estado(supabase, "l1")["serie"] == 1
+
+
+def test_la_corrida_horaria_solo_atiende_lotes_nuevos_o_modificados(entorno, supabase, monkeypatch):
+    main_mod.main(entorno["cfg"])
+    monkeypatch.setenv("BH_SOLO_PENDIENTES", "true")
+    corridas = {e["lote_id"]: e["ultima_corrida"] for e in supabase.t["estado_lote"]}
+
+    # Sin cambios: no toca ningún lote (el roto sí, porque nunca llegó a calcular)
+    main_mod.main(entorno["cfg"])
+    for lote_id in ("l1", "l2", "l3"):
+        assert _estado(supabase, lote_id)["ultima_corrida"] == corridas[lote_id]
+
+    # Un lote nuevo y uno modificado: solo esos dos
+    supabase.t["lotes"].append(_lote("l5", "u-beto", "Nuevo", "2026-10-01"))
+    supabase.update("lotes", {"id": "eq.l1"}, {"fecha_siembra": "2026-09-05"})
+    main_mod.main(entorno["cfg"])
+
+    assert _serie(supabase, "l5")
+    assert _estado(supabase, "l1")["serie"] == 2
+    for lote_id in ("l2", "l3"):
+        assert _estado(supabase, lote_id)["ultima_corrida"] == corridas[lote_id]
 
 
 def test_el_suelo_del_config_no_se_hereda(entorno):

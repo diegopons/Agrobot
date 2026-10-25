@@ -171,7 +171,7 @@ class AlmacenLocal:
     def _rutas(self) -> dict:
         return self.cfg["rutas"]
 
-    def lotes(self, solo_id: Optional[str] = None) -> list[Lote]:
+    def lotes(self, solo_id: Optional[str] = None, solo_pendientes: bool = False) -> list[Lote]:
         tg = self.cfg.get("telegram", {})
         return [Lote(
             id="local",
@@ -315,9 +315,24 @@ class AlmacenSupabase:
         self.db = ClienteSupabase(url, clave)
         self.errores_de_carga: list[str] = []
 
-    def lotes(self, solo_id: Optional[str] = None) -> list[Lote]:
+    @staticmethod
+    def _pendiente(fila: dict) -> bool:
+        """Lote que no puede esperar a la corrida diaria: nuevo, sin ningún
+        día calculado, con un recálculo pedido o modificado desde la última
+        corrida."""
+        est = fila.get("estado")
+        if isinstance(est, list):
+            est = est[0] if est else None
+        if not est or not est.get("ultima_fecha_procesada") or fila.get("reiniciar"):
+            return True
+        if not est.get("ultima_corrida"):
+            return True
+        return pd.Timestamp(fila["actualizado"]) > pd.Timestamp(est["ultima_corrida"])
+
+    def lotes(self, solo_id: Optional[str] = None, solo_pendientes: bool = False) -> list[Lote]:
         params = {
-            "select": "*,perfil:perfiles(nombre,telegram_chat_id)",
+            "select": "*,perfil:perfiles(nombre,telegram_chat_id),"
+                      "estado:estado_lote(ultima_fecha_procesada,ultima_corrida)",
             "activo": "eq.true",
             "order": "creado.asc",
         }
@@ -326,6 +341,8 @@ class AlmacenSupabase:
 
         lotes = []
         for fila in self.db.select("lotes", params):
+            if solo_pendientes and not self._pendiente(fila):
+                continue
             perfil = fila.get("perfil") or {}
             try:
                 cfg = config_de_lote(self.cfg_base, fila)

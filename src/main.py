@@ -656,13 +656,18 @@ def main(config_path: str = "config.yaml") -> int:
             )
             opciones.reiniciar = False
 
+    # Las corridas de cada hora solo atienden lotes nuevos o modificados; los
+    # días nuevos de todos los lotes los procesa la corrida diaria, a la hora
+    # en que la estación del INTA ya consolidó el dato.
+    solo_pendientes = _env_bool("BH_SOLO_PENDIENTES") and not solo_id
     try:
-        lotes = almacen.lotes(solo_id=solo_id)
+        lotes = almacen.lotes(solo_id=solo_id, solo_pendientes=solo_pendientes)
     except Exception as e:  # noqa: BLE001
         log.error("No se pudo leer la lista de lotes: %s", e)
         return 1
     if not lotes:
-        log.info("No hay lotes activos para procesar%s.",
+        log.info("No hay lotes %spara procesar%s.",
+                 "nuevos o modificados " if solo_pendientes else "activos ",
                  f" con id {solo_id}" if solo_id else "")
         return 1 if almacen.errores_de_carga else 0
 

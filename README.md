@@ -1,5 +1,12 @@
 # Balance Hídrico Periódico 
 
+> **Varios usuarios y lotes.** Con Supabase configurado, el sistema corre el
+> balance para todos los lotes de todos los usuarios, cada usuario entra al
+> tablero con su correo y ve solo sus lotes, y el bot responde a cada uno
+> sobre los suyos. Puesta en marcha: [SUPABASE.md](SUPABASE.md); bot:
+> [N8N.md](N8N.md). Sin Supabase, todo lo que sigue funciona igual que
+> antes, con un solo lote definido en `config.yaml`.
+
 Versión "de producción" del notebook `balance_hidrico_gee`, pensada para
 correr sola, de forma periódica, en una PC Windows (Task Scheduler). Misma
 física agronómica que la planilla Excel y el notebook, con dos cambios de
@@ -36,7 +43,11 @@ balance_hidrico_periodico/
 │   ├── estado.py          # estado.json + CSV histórico
 │   ├── auth_cdse.py       # login OAuth2 en CDSE
 │   ├── config.py
-│   └── main.py            # orquestador (esto es lo que corre Task Scheduler)
+│   ├── almacen.py         # dónde viven los lotes: config.yaml (local) o Supabase
+│   └── main.py            # orquestador: corre el balance para cada lote
+├── supabase/schema.sql    # tablas y permisos para el modo multiusuario
+├── scripts/migrar_a_supabase.py  # pasa el lote local a una cuenta de Supabase
+├── tests/                 # pruebas sin red (python -m pytest tests -q)
 ├── data/                  # (se crea sola) estado.json + CSV histórico
 └── logs/                  # (se crea sola) logs de cada corrida
 ```

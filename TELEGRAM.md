@@ -1,5 +1,10 @@
 # Alertas por Telegram
 
+> **Con varios usuarios (Supabase)**, cada aviso va al chat que vinculó el
+> dueño del lote desde el tablero (pestaña Cuenta), y el modo de aviso se
+> elige por lote. Ya no hace falta `TELEGRAM_CHAT_ID`: solo el token del bot.
+> Lo que sigue sobre el contenido del mensaje y los modos vale igual.
+
 ## Qué manda
 
 Un mensaje como este:

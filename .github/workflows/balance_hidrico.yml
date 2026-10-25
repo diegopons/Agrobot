@@ -44,6 +44,7 @@ concurrency:
 
 permissions:
   contents: read
+  actions: write     # solo para el paso que mantiene activo el horario
 
 jobs:
   balance-hidrico:
@@ -87,6 +88,16 @@ jobs:
           BH_REINICIAR_ESTADO: ${{ inputs.reiniciar_estado }}
           BH_ENVIAR_RESUMEN: ${{ inputs.enviar_resumen }}
         run: python -m src.main
+
+      # GitHub desactiva los horarios de un repo público tras 60 días sin
+      # actividad. Antes los mantenía vivos el commit diario de resultados;
+      # ahora los resultados van a Supabase, así que se vuelve a habilitar el
+      # workflow por la API en cada corrida diaria.
+      - name: Mantener activo el horario
+        if: github.event_name == 'schedule' && github.event.schedule == '0 9 * * *'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh api -X PUT "repos/${{ github.repository }}/actions/workflows/balance_hidrico.yml/enable"
 
       # El log queda descargable desde la pestaña Actions. No se publica en
       # el repo: nombra lotes y usuarios.

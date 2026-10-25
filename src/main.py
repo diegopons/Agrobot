@@ -167,15 +167,18 @@ def resolver_suelo(lote: Lote, almacen, aoi_info: dict) -> dict:
        recalcula sin motivo.
     3. El perfil por defecto (serie Oncativo de la planilla BH p-Pons).
 
+    La carta se consulta aunque el lote tenga calicata: el tablero la muestra
+    igual (series, capacidad de uso, limitantes), solo que no entra al balance.
+
     Devuelve el origen, para el resumen y el tablero.
     """
     cfg = lote.cfg
-    if cfg.get("suelo"):
-        return {"origen": "calicata o perfil cargado por el usuario"}
+    calicata = bool(cfg.get("suelo"))
+    con_calicata = {"origen": "calicata o perfil cargado por el usuario"}
 
     cfg_carta = cfg.get("suelo_carta", {})
     if not cfg_carta.get("habilitado", True):
-        return {"origen": "perfil por defecto"}
+        return con_calicata if calicata else {"origen": "perfil por defecto"}
 
     carta = almacen.suelo_carta(lote)
     if not carta or carta.get("huella_geometria") != mod_suelo_carta.huella_geometria(aoi_info["geojson"]):
@@ -191,10 +194,14 @@ def resolver_suelo(lote: Lote, almacen, aoi_info: dict) -> dict:
             # No se guarda nada: la próxima corrida vuelve a intentar. Si
             # entonces responde, cambia el perfil y el balance se recalcula
             # solo desde la siembra con el suelo correcto.
-            log.warning("No se pudo consultar la Carta de Suelos: %s. Se usa el perfil "
-                        "por defecto y se reintenta en la próxima corrida.", e)
+            log.warning("No se pudo consultar la Carta de Suelos: %s. Se reintenta en la "
+                        "próxima corrida.", e)
+            if calicata:
+                return con_calicata
             return {"origen": "perfil por defecto", "motivo": "IDECOR no respondió"}
 
+    if calicata:
+        return con_calicata
     if carta.get("perfil"):
         cfg["suelo"] = carta["perfil"]
         return {"origen": "Carta de Suelos de Córdoba (IDECOR)",

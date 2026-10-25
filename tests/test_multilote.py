@@ -430,10 +430,13 @@ def test_los_lotes_sin_calicata_toman_el_suelo_de_la_carta(entorno, supabase):
 
     main_mod.main(entorno["cfg"])
 
-    # una consulta por lote sin calicata (l1, l3 y el roto falla antes)
-    assert len(entorno["carta"]["consultas"]) == 2
+    # una consulta por lote, también el que tiene calicata (el roto falla antes)
+    assert len(entorno["carta"]["consultas"]) == 3
     assert _estado(supabase, "l1")["suelo_carta"]["au_2m"] == 300.0
-    assert "suelo_carta" not in _estado(supabase, "l2") or not _estado(supabase, "l2").get("suelo_carta")
+    # el de calicata la guarda para mostrarla, pero el balance usa la calicata
+    assert _estado(supabase, "l2")["suelo_carta"]["au_2m"] == 300.0
+    from src.suelo import precalcular_parametros_suelo as _pre
+    assert max(f["au_max_mm"] for f in _serie(supabase, "l2")) <= _pre(perfil)["au_max_acum_mm"].max() + 0.01
     res = {r["lote_id"]: r["resumen"] for r in supabase.t["resumen_lote"]}
     assert res["l1"]["perfil_de_suelo"]["origen"].startswith("Carta de Suelos")
     assert res["l2"]["perfil_de_suelo"]["origen"].startswith("calicata")

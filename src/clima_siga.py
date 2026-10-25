@@ -109,11 +109,28 @@ def _distancia_km(lat1, lon1, lat2, lon2) -> float:
     return r * math.hypot(x, y)
 
 
+def _fecha_siga(valor) -> Optional[pd.Timestamp]:
+    """'2026-10-23T00:00:00Z[UTC]' -> Timestamp (sin zona). None si no hay."""
+    if valor is None or (isinstance(valor, float) and math.isnan(valor)):
+        return None
+    try:
+        return pd.Timestamp(str(valor).split("[")[0]).tz_localize(None)
+    except (ValueError, TypeError):
+        return None
+
+
 def estacion_mas_cercana(
     lat: float, lon: float, df_estaciones: Optional[pd.DataFrame] = None,
-    max_km: float = 50.0,
+    max_km: float = 50.0, max_dias_sin_datos: int = 30,
 ) -> dict:
-    """Estación con datos diarios más cercana al punto, o error si no hay."""
+    """Estación con datos diarios recientes más cercana al punto, o error si no hay.
+
+    El listado incluye estaciones cerradas hace años: la convencional de
+    Manfredi (NH0438) dejó de registrar en 2014 y está más cerca de algunos
+    lotes que la automática que sigue activa. Elegirla por distancia deja al
+    lote sin dato medido, cayendo siempre a la fuente siguiente sin que se
+    note. Se descartan las que no tienen un diario en los últimos días.
+    """
     df = df_estaciones if df_estaciones is not None else listar_estaciones()
     df = df.dropna(subset=["latitud", "longitud", "idInterno"]).copy()
     df["km"] = [
@@ -123,6 +140,24 @@ def estacion_mas_cercana(
     df = df[df["km"] <= max_km].sort_values("km")
     if df.empty:
         raise ErrorSIGA(f"No hay estaciones del SIGA a menos de {max_km} km.")
+
+    if "maximoDiario" in df.columns:
+        limite = pd.Timestamp.today().normalize() - pd.Timedelta(days=max_dias_sin_datos)
+        ultimo = df["maximoDiario"].map(_fecha_siga)
+        activas = df[ultimo.notna() & (ultimo >= limite)]
+        for _, inactiva in df[~df.index.isin(activas.index)].iterrows():
+            if inactiva["km"] < (activas["km"].min() if not activas.empty else max_km):
+                logger.info(
+                    "SIGA: se descarta %s (%s) a %.1f km: último diario %s.",
+                    inactiva.get("nombre"), inactiva["idInterno"], inactiva["km"],
+                    _fecha_siga(inactiva["maximoDiario"]) or "sin dato",
+                )
+        if activas.empty:
+            raise ErrorSIGA(
+                f"No hay estaciones del SIGA con datos de los últimos "
+                f"{max_dias_sin_datos} días a menos de {max_km} km."
+            )
+        df = activas
     e = df.iloc[0]
     return {
         "id_interno": str(e["idInterno"]),

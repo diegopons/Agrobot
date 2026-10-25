@@ -35,6 +35,7 @@ from typing import Optional
 import requests
 
 from .auth_cdse import obtener_token
+from .ndvi_sentinelhub import resolucion_en_grados
 
 logger = logging.getLogger(__name__)
 
@@ -119,6 +120,8 @@ def serie(client_id: str, client_secret: str, geojson: dict, desde: str, hasta: 
     {"fecha", "cobertura_pct", "valores": {indice: {"mediana", "p10", "p90", "media"}}}
     """
     token = obtener_token(client_id, client_secret)
+    # Los bounds van en CRS84, así que la resolución se pide en grados
+    resx, resy = resolucion_en_grados(resolucion_m, geojson)
     payload = {
         "input": {
             "bounds": {"geometry": geojson,
@@ -130,7 +133,7 @@ def serie(client_id: str, client_secret: str, geojson: dict, desde: str, hasta: 
             "timeRange": {"from": f"{desde}T00:00:00Z", "to": f"{hasta}T23:59:59Z"},
             "aggregationInterval": {"of": "P1D"},
             "evalscript": evalscript_estadisticas(scl_validas),
-            "resx": resolucion_m, "resy": resolucion_m,
+            "resx": resx, "resy": resy,
         },
         "calculations": {"default": {"statistics": {"default": {
             "percentiles": {"k": list(PERCENTILES)}}}}},
@@ -153,6 +156,11 @@ def interpretar_estadisticas(body: dict, min_cobertura_pct: float = 70.0) -> lis
         cobertura = 100 * validos / n if n else 0.0
         if validos <= 0 or cobertura < min_cobertura_pct:
             continue
+        if n < 10:
+            # Un lote de decenas de hectáreas tiene miles de píxeles de 10 m:
+            # tan pocos indican una resolución mal pedida, no un lote chico.
+            logger.warning("Índices %s: el lote cae en solo %d píxel(es); revisar la resolución.",
+                           fecha, n)
         valores = {}
         for k in INDICES:
             st = salidas.get(k, {}).get("bands", {}).get("B0", {}).get("stats") or {}

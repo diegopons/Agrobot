@@ -16,6 +16,7 @@ Classification Layer) de Sentinel-2 L2A dentro del evalscript.
 from __future__ import annotations
 
 import logging
+import math
 from datetime import date, timedelta
 from typing import Optional
 
@@ -47,6 +48,22 @@ STATISTICS_URL = "https://sh.dataspace.copernicus.eu/api/v1/statistics"
 # es el lado correcto para equivocarse: un hueco se interpola, un valor
 # contaminado se propaga.
 SCL_VALIDAS_DEFECTO = (4, 5)
+
+
+def resolucion_en_grados(metros: float, geojson: dict) -> tuple[float, float]:
+    """resx, resy en grados para pedir píxeles de `metros` con bounds en CRS84.
+
+    La Statistical API interpreta resx/resy en las unidades del CRS de los
+    bounds, y con CRS84 son GRADOS. Pedir resx=10 pensando en metros daba
+    píxeles de 10° (~1.100 km): el lote entero caía en un único píxel y el
+    "promedio del lote" era el valor de ese píxel suelto. Por eso el NDVI
+    saltaba entre pasadas y tantas fechas salían fuera de rango.
+    """
+    from shapely.geometry import shape
+    lat = shape(geojson).centroid.y
+    resx = metros / (111_320 * max(0.01, math.cos(math.radians(lat))))
+    resy = metros / 110_540
+    return resx, resy
 
 
 def _evalscript(scl_validas) -> str:
@@ -103,6 +120,7 @@ def obtener_serie_ndvi(
     desnudo más húmedo da negativo.
     """
     token = obtener_token(client_id, client_secret)
+    resx, resy = resolucion_en_grados(resolucion_m, geojson_geometry)
 
     payload = {
         "input": {
@@ -124,8 +142,9 @@ def obtener_serie_ndvi(
             },
             "aggregationInterval": {"of": "P1D"},
             "evalscript": _evalscript(scl_validas),
-            "resx": resolucion_m,
-            "resy": resolucion_m,
+            # en grados: los bounds van en CRS84 (ver resolucion_en_grados)
+            "resx": resx,
+            "resy": resy,
         },
         "calculations": {"default": {}},
     }
@@ -154,6 +173,9 @@ def obtener_serie_ndvi(
         nodata_count = stats.get("noDataCount", 0)
         validos = sample_count - nodata_count
         cobertura = (validos / sample_count * 100) if sample_count else 0.0
+        if 0 < sample_count < 10:
+            logger.warning("  %s: el lote cae en solo %d píxel(es); revisar la resolución.",
+                           fecha_str, sample_count)
 
         # Un día con la mitad del lote tapado por una nube da un promedio que
         # describe la otra mitad, no el lote. Mejor descartarlo y dejar que la

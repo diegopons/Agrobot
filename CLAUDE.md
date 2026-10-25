@@ -44,6 +44,9 @@ de cara al usuario está en castellano rioplatense (voseo).
 
 ## Estado al 2026-10-25
 
+Clave secreta de Supabase rotada el 2026-10-25: la vigente se llama `github_actions`
+(Secret `SUPABASE_SERVICE_ROLE_KEY` y `.env` local); la `default` expuesta fue borrada.
+
 Lotes: "Lote 20" (pivote de 92 ha sin cultivo, con calicata; el usuario pidió
 dejarlo como está) y "lote21" (3,3 ha de trigo, siembra 20/05, perfil de la carta).
 
@@ -52,7 +55,6 @@ Pendiente:
    n8n y una secret key de Supabase propia para n8n.
 2. Verificar que arranquen las corridas "schedule" de Actions (al cerrar no había).
 3. Apagar el repo viejo `balance-hidrico-lote20`.
-4. Rotar claves (la `sb_secret` quedó expuesta en una conversación).
-5. Borrar del repo los datos viejos del Lote 20 (`data/`, `docs/*.csv|json|geojson|png`, `aoi/`).
+4. Borrar del repo los datos viejos del Lote 20 (`data/`, `docs/*.csv|json|geojson|png`, `aoi/`).
 
 Guías: `SUPABASE.md` (puesta en marcha), `N8N.md` (bot), `TABLERO.md` (uso).

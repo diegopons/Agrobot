@@ -296,164 +296,280 @@ button.chico{display:inline-block;width:auto;padding:8px 12px;font-size:13.5px}
 .ix-leyenda .extremos{display:flex;justify-content:space-between;font-variant-numeric:tabular-nums}
 
 /* ---- portada ---- */
-.portada{max-width:1040px;margin:0 auto}
-.p-hero{display:grid;grid-template-columns:1.25fr 1fr;gap:40px;align-items:start;
-  padding:28px 0 36px;border-bottom:2px solid var(--tinta)}
-@media(max-width:860px){.p-hero{grid-template-columns:1fr;gap:28px}}
-.p-marca{font-size:14px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;
-  color:var(--agua);margin:0 0 10px}
-.p-hero h1{font-size:40px;line-height:1.08;letter-spacing:-.03em;font-weight:800;margin:0 0 16px}
-@media(max-width:560px){.p-hero h1{font-size:30px}}
-.p-bajada{font-size:17.5px;color:var(--tinta-suave);margin:0 0 18px;max-width:52ch}
-.p-puntos{margin:0;padding-left:20px;font-size:15px;line-height:1.8}
-.p-form{background:var(--papel);border:1px solid var(--linea);padding:24px}
-.p-form h2{margin-bottom:4px}
+/* Fotos de fondo siempre bajo un velo oscuro: el texto va en blanco sobre el
+   velo, nunca directo sobre la foto, y los formularios en tarjetas sólidas. */
+:root{
+  --trigo:#C8963E;
+  --trigo-claro:#E9C77B;
+  --velo:20,30,24;               /* verde muy oscuro, en rgb para los degradados */
+}
+.portada{background:var(--fondo)}
+.p-contenedor{max-width:1120px;margin:0 auto;padding:0 24px}
+@media(max-width:560px){.p-contenedor{padding:0 16px}}
+
+.p-hero{
+  position:relative;color:#fff;
+  background:
+    linear-gradient(100deg, rgba(var(--velo),.92) 0%, rgba(var(--velo),.78) 45%, rgba(var(--velo),.35) 100%),
+    url("img/trigo-1920.webp") center 35% / cover no-repeat;
+  padding:64px 0 72px;
+}
+@media(max-width:860px){
+  .p-hero{background:
+    linear-gradient(180deg, rgba(var(--velo),.88) 0%, rgba(var(--velo),.80) 100%),
+    url("img/trigo-960.webp") center / cover no-repeat;
+    padding:40px 0 48px}
+}
+.p-hero-grid{display:grid;grid-template-columns:1.2fr 1fr;gap:48px;align-items:center}
+@media(max-width:860px){.p-hero-grid{grid-template-columns:1fr;gap:32px}}
+.p-marca{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:800;
+  letter-spacing:.16em;text-transform:uppercase;color:var(--trigo-claro);margin:0 0 18px}
+.p-marca svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.6;
+  stroke-linecap:round;stroke-linejoin:round}
+.p-marca-oscura{color:var(--trigo)}
+.p-hero h1{font-size:46px;line-height:1.05;letter-spacing:-.03em;font-weight:800;margin:0 0 18px;
+  text-shadow:0 2px 18px rgba(0,0,0,.25)}
+@media(max-width:560px){.p-hero h1{font-size:32px}}
+.p-bajada{font-size:18px;line-height:1.55;color:rgba(255,255,255,.88);margin:0 0 22px;max-width:50ch}
+.p-puntos{list-style:none;margin:0;padding:0;font-size:15.5px;line-height:1.6}
+.p-puntos li{position:relative;padding-left:28px;margin-bottom:8px;color:rgba(255,255,255,.92)}
+.p-puntos li::before{content:"";position:absolute;left:0;top:.35em;width:16px;height:16px;border-radius:50%;
+  background:var(--trigo) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M4 8.2 7 11l5-6' fill='none' stroke='%23fff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/12px no-repeat}
+
+.p-form{background:var(--papel);color:var(--tinta);padding:28px;border-radius:6px;
+  box-shadow:0 24px 60px rgba(0,0,0,.35);border-top:4px solid var(--trigo)}
+.p-form h2{margin-bottom:4px;font-size:20px}
 .opc{font-weight:400;color:var(--tinta-suave)}
 .p-nota{font-size:12.5px;color:var(--tinta-suave);margin:12px 0 0}
-.p-seccion{padding:32px 0 8px}
-.p-seccion h2{font-size:22px;margin-bottom:16px}
-.p-tarjetas{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px}
-.p-tarjeta{background:var(--papel);border:1px solid var(--linea);border-top:3px solid var(--agua);padding:16px 18px}
-.p-tarjeta h3{margin:0 0 6px;font-size:16px}
-.p-tarjeta p{margin:0;font-size:14.5px;color:var(--tinta-suave);line-height:1.5}
-.p-pasos{margin:0;padding-left:22px;font-size:15.5px;line-height:1.7;max-width:70ch}
-.p-pasos li{margin-bottom:8px}
-.p-fuentes{margin:0;padding-left:20px;font-size:15px;line-height:1.7;max-width:80ch}
-.p-faq{background:var(--papel);border:1px solid var(--linea);padding:12px 16px;margin-bottom:8px;max-width:80ch}
+
+.p-seccion{padding:56px 0 8px}
+.p-antetitulo{font-size:12.5px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--trigo);margin:0 0 6px}
+.p-seccion h2,.p-banda h2{font-size:28px;letter-spacing:-.02em;font-weight:800;margin:0 0 22px}
+@media(max-width:560px){.p-seccion h2,.p-banda h2{font-size:23px}}
+.p-tarjetas{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px}
+.p-tarjeta{background:var(--papel);border:1px solid var(--linea);border-radius:6px;padding:20px 20px 18px;
+  transition:box-shadow .2s, transform .2s}
+.p-tarjeta:hover{box-shadow:0 10px 28px rgba(42,46,39,.10);transform:translateY(-2px)}
+.p-icono{width:38px;height:38px;padding:8px;border-radius:50%;background:#F4ECDD;color:var(--trigo);
+  fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;margin-bottom:12px}
+.p-tarjeta h3{margin:0 0 6px;font-size:16.5px}
+.p-tarjeta p{margin:0;font-size:14.5px;color:var(--tinta-suave);line-height:1.55}
+
+.p-banda{margin-top:56px;padding:64px 0;color:#fff;
+  background:
+    linear-gradient(90deg, rgba(var(--velo),.88) 0%, rgba(var(--velo),.62) 55%, rgba(var(--velo),.25) 100%),
+    url("img/pivote-1920.webp") center 88% / cover no-repeat}
+@media(max-width:860px){.p-banda{background:
+    linear-gradient(rgba(var(--velo),.86), rgba(var(--velo),.86)),
+    url("img/pivote-960.webp") center / cover no-repeat}}
+.p-banda .p-antetitulo{color:var(--trigo-claro)}
+.p-pasos{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:18px}
+.p-pasos li{display:flex;gap:14px;align-items:flex-start;background:rgba(255,255,255,.08);
+  border:1px solid rgba(255,255,255,.18);border-radius:6px;padding:18px;font-size:15px;line-height:1.55;
+  color:rgba(255,255,255,.92);backdrop-filter:blur(2px)}
+.p-pasos li span{flex:0 0 34px;height:34px;border-radius:50%;background:var(--trigo);color:#fff;
+  font-weight:800;display:flex;align-items:center;justify-content:center;font-size:16px}
+.p-pasos strong{color:#fff}
+
+.p-fuentes{margin:0;padding-left:20px;font-size:15.5px;line-height:1.75;max-width:80ch}
+.p-faq{background:var(--papel);border:1px solid var(--linea);border-radius:6px;padding:14px 18px;
+  margin-bottom:10px;max-width:80ch}
 .p-faq summary{cursor:pointer;font-weight:600}
 .p-faq p{margin:8px 0 0;color:var(--tinta-suave);font-size:14.5px}
-.p-pie{margin:32px 0 0;padding-top:16px;border-top:1px solid var(--linea);font-size:13px;color:var(--tinta-suave)}
+.p-pie{margin:48px 0 0;padding:20px 0 40px;border-top:1px solid var(--linea);font-size:13px;color:var(--tinta-suave)}
+.p-pie p{margin:0 0 6px}
+.p-pie a{color:var(--tinta-suave)}
+
+/* ---- cuenta en revisión ---- */
+.p-pendiente{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;
+  background:linear-gradient(rgba(var(--velo),.42), rgba(var(--velo),.62)),
+    url("img/pivote-1920.webp") center / cover no-repeat}
+.p-pendiente.oculto{display:none}
+.p-pendiente-tarjeta{max-width:480px;width:100%;background:var(--papel);padding:32px 28px;border-radius:6px;
+  box-shadow:0 24px 60px rgba(0,0,0,.35);border-top:4px solid var(--trigo)}
+.p-pendiente-tarjeta h1{font-size:26px;font-weight:800;letter-spacing:-.02em;margin:0 0 8px}
+
+/* ---- encabezado del tablero ---- */
+#app .cabecera{
+  color:#fff;border-bottom:none;border-radius:6px;padding:26px 28px;margin-bottom:22px;
+  background:
+    linear-gradient(100deg, rgba(var(--velo),.90) 0%, rgba(var(--velo),.70) 50%, rgba(var(--velo),.30) 100%),
+    url("img/pivote-1920.webp") center 90% / cover no-repeat;
+  box-shadow:0 10px 30px rgba(42,46,39,.12)}
+@media(max-width:700px){#app .cabecera{padding:20px 18px;
+  background:linear-gradient(rgba(var(--velo),.88), rgba(var(--velo),.88)),
+    url("img/pivote-960.webp") center / cover no-repeat}}
+#app .cabecera h1{color:#fff}
+#app .cabecera .meta{color:rgba(255,255,255,.78)}
+#app .cabecera button.chico{background:rgba(255,255,255,.10);color:#fff;border-color:rgba(255,255,255,.45)}
+#app .cabecera button.chico:hover{background:rgba(255,255,255,.22)}
+#app .cabecera select{border-color:#fff}
+nav.secciones button[aria-selected="true"]{border-bottom-color:var(--trigo)}
 .etiqueta{display:inline-block;font-size:12px;font-weight:600;padding:2px 8px;border-radius:10px}
 .etiqueta.pend{background:#FBF3E9;color:var(--deficit)}
 .etiqueta.ok{background:#EFF4EC;color:var(--optimo)}
 </style>
 </head>
 <body>
-<div class="envoltorio">
-
   <!-- ======================= PORTADA E INGRESO ======================= -->
   <div id="pantalla-login" class="portada oculto">
     <header class="p-hero">
-      <div>
-        <p class="p-marca">Agrobot</p>
-        <h1>El agua de tus lotes, calculada todos los días</h1>
-        <p class="p-bajada">Balance hídrico diario con imágenes satelitales, la estación
-          meteorológica más cercana y la carta de suelos de tu zona. Te dice cuánta agua útil
-          tiene el cultivo, cuándo conviene regar y cuánto.</p>
-        <ul class="p-puntos">
-          <li>Sin instalar nada: lo dibujás en un mapa y se calcula solo.</li>
-          <li>Se actualiza cada mañana, desde la siembra.</li>
-          <li>Avisos y consultas por Telegram.</li>
-        </ul>
-      </div>
-      <div class="p-form">
-        <h2 id="form-titulo">Pedir acceso</h2>
-        <p class="subtitulo">Te mandamos un enlace al correo para entrar, sin contraseña.
-          Si ya tenés cuenta, poné solo tu correo.</p>
-        <form id="form-login">
-          <div class="campo">
-            <label for="f-email">Correo electrónico</label>
-            <input type="email" id="f-email" required autocomplete="email">
-          </div>
-          <div id="campos-registro">
-            <div class="campo" style="margin-top:10px">
-              <label for="f-reg-nombre">Nombre <span class="opc">(la primera vez)</span></label>
-              <input type="text" id="f-reg-nombre" autocomplete="name" maxlength="80">
+      <div class="p-contenedor p-hero-grid">
+        <div class="p-hero-texto">
+          <p class="p-marca">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 22V8m0 0c-2-1-3-3-3-5 2 1 3 3 3 5Zm0 0c2-1 3-3 3-5-2 1-3 3-3 5Zm0 5c-2-1-3-3-3-5 2 1 3 3 3 5Zm0 0c2-1 3-3 3-5-2 1-3 3-3 5Zm0 5c-2-1-3-3-3-5 2 1 3 3 3 5Zm0 0c2-1 3-3 3-5-2 1-3 3-3 5Z"/></svg>
+            Agrobot
+          </p>
+          <h1>El agua de tus lotes, calculada todos los días</h1>
+          <p class="p-bajada">Balance hídrico diario con imágenes satelitales, la estación
+            meteorológica más cercana y la carta de suelos de tu zona. Te dice cuánta agua útil
+            tiene el cultivo, cuándo conviene regar y cuánto.</p>
+          <ul class="p-puntos">
+            <li>Sin instalar nada: lo dibujás en un mapa y se calcula solo.</li>
+            <li>Se actualiza cada mañana, desde la siembra.</li>
+            <li>Avisos y consultas por Telegram.</li>
+          </ul>
+        </div>
+        <div class="p-form">
+          <h2 id="form-titulo">Pedir acceso</h2>
+          <p class="subtitulo">Te mandamos un enlace al correo para entrar, sin contraseña.
+            Si ya tenés cuenta, poné solo tu correo.</p>
+          <form id="form-login">
+            <div class="campo">
+              <label for="f-email">Correo electrónico</label>
+              <input type="email" id="f-email" required autocomplete="email">
             </div>
-            <div class="campo" style="margin-top:10px">
-              <label for="f-reg-org">Organización o actividad <span class="opc">(opcional)</span></label>
-              <input type="text" id="f-reg-org" maxlength="120" placeholder="Productor, asesor, cooperativa…">
+            <div id="campos-registro">
+              <div class="campo" style="margin-top:10px">
+                <label for="f-reg-nombre">Nombre <span class="opc">(la primera vez)</span></label>
+                <input type="text" id="f-reg-nombre" autocomplete="name" maxlength="80">
+              </div>
+              <div class="campo" style="margin-top:10px">
+                <label for="f-reg-org">Organización o actividad <span class="opc">(opcional)</span></label>
+                <input type="text" id="f-reg-org" maxlength="120" placeholder="Productor, asesor, cooperativa…">
+              </div>
+              <div class="campo" style="margin-top:10px">
+                <label for="f-reg-motivo">¿Para qué lo usarías? <span class="opc">(opcional)</span></label>
+                <input type="text" id="f-reg-motivo" maxlength="200" placeholder="Riego de maíz con pivote, 3 lotes…">
+              </div>
             </div>
-            <div class="campo" style="margin-top:10px">
-              <label for="f-reg-motivo">¿Para qué lo usarías? <span class="opc">(opcional)</span></label>
-              <input type="text" id="f-reg-motivo" maxlength="200" placeholder="Riego de maíz con pivote, 3 lotes…">
-            </div>
-          </div>
-          <button class="principal" type="submit" style="margin-top:14px">Enviarme el enlace</button>
-        </form>
-        <div id="aviso-login" class="aviso oculto"></div>
-        <p class="p-nota">Las cuentas nuevas se habilitan a mano: te avisamos cuando esté lista.</p>
+            <button class="principal" type="submit" style="margin-top:14px">Enviarme el enlace</button>
+          </form>
+          <div id="aviso-login" class="aviso oculto"></div>
+          <p class="p-nota">Las cuentas nuevas se habilitan a mano: te avisamos por correo cuando esté lista.</p>
+        </div>
       </div>
     </header>
 
-    <section class="p-seccion">
-      <h2>Qué hace</h2>
-      <div class="p-tarjetas">
-        <div class="p-tarjeta"><h3>Balance hídrico diario</h3>
-          <p>Agua útil del perfil día por día, con la profundidad de raíz y el consumo del cultivo
-          estimado desde el NDVI. Método FAO-56.</p></div>
-        <div class="p-tarjeta"><h3>Lámina de riego</h3>
-          <p>Cuánto regar para volver a capacidad de campo, y la lámina ajustada si se espera
-          lluvia en los próximos días.</p></div>
-        <div class="p-tarjeta"><h3>Suelo de tu lote</h3>
-          <p>En Córdoba, el perfil sale solo de la Carta de Suelos: agua útil a 1, 1,5 y 2 m,
-          capacidad de uso y limitantes. Si tenés calicata, manda la calicata.</p></div>
-        <div class="p-tarjeta"><h3>Índices espectrales</h3>
-          <p>NDVI, NDRE, EVI, SAVI y seis más, con mapas del lote de cada pasada despejada de
-          Sentinel-2.</p></div>
-        <div class="p-tarjeta"><h3>Registro de riegos</h3>
-          <p>Cargás lo que regaste y el balance lo incorpora, aunque lo cargues días después.</p></div>
-        <div class="p-tarjeta"><h3>Telegram</h3>
-          <p>Aviso cuando el lote cruza el umbral de riego, y un bot al que le preguntás cómo
-          están tus lotes.</p></div>
+    <div class="p-contenedor">
+      <section class="p-seccion">
+        <p class="p-antetitulo">Qué hace</p>
+        <h2>Todo lo que necesitás para decidir el riego</h2>
+        <div class="p-tarjetas">
+          <div class="p-tarjeta">
+            <svg class="p-icono" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3s6 6.5 6 11a6 6 0 0 1-12 0c0-4.5 6-11 6-11Z"/><path d="M9 15a3 3 0 0 0 3 3"/></svg>
+            <h3>Balance hídrico diario</h3>
+            <p>Agua útil del perfil día por día, con la profundidad de raíz y el consumo del cultivo
+            estimado desde el NDVI. Método FAO-56.</p></div>
+          <div class="p-tarjeta">
+            <svg class="p-icono" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg>
+            <h3>Lámina de riego</h3>
+            <p>Cuánto regar para volver a capacidad de campo, y la lámina ajustada si se espera
+            lluvia en los próximos días.</p></div>
+          <div class="p-tarjeta">
+            <svg class="p-icono" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7h18M3 12h18M3 17h18"/><path d="M7 7v10M15 12v5"/></svg>
+            <h3>Suelo de tu lote</h3>
+            <p>En Córdoba, el perfil sale solo de la Carta de Suelos: agua útil a 1, 1,5 y 2 m,
+            capacidad de uso y limitantes. Si tenés calicata, manda la calicata.</p></div>
+          <div class="p-tarjeta">
+            <svg class="p-icono" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="6" height="6" rx="1"/><path d="M9 12H3m18 0h-6M12 9V3m0 18v-6M5 5l3 3m8 8 3 3"/></svg>
+            <h3>Índices espectrales</h3>
+            <p>NDVI, NDRE, EVI, SAVI y seis más, con mapas del lote de cada pasada despejada de
+            Sentinel-2.</p></div>
+          <div class="p-tarjeta">
+            <svg class="p-icono" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="17" rx="2"/><path d="M8 2v4m8-4v4M4 10h16M8 14h3m-3 3h6"/></svg>
+            <h3>Registro de riegos</h3>
+            <p>Cargás lo que regaste y el balance lo incorpora, aunque lo cargues días después.</p></div>
+          <div class="p-tarjeta">
+            <svg class="p-icono" viewBox="0 0 24 24" aria-hidden="true"><path d="m21 4-18 7 6 2 2 7 3-5 5 4 2-15Z"/><path d="m9 13 9-6"/></svg>
+            <h3>Telegram</h3>
+            <p>Aviso cuando el lote cruza el umbral de riego, y un bot al que le preguntás cómo
+            están tus lotes.</p></div>
+        </div>
+      </section>
+    </div>
+
+    <section class="p-banda">
+      <div class="p-contenedor">
+        <p class="p-antetitulo">Cómo funciona</p>
+        <h2>Tres pasos y el lote se calcula solo</h2>
+        <ol class="p-pasos">
+          <li><span>1</span><div><strong>Pedís acceso</strong> con tu correo. Cuando la cuenta está
+            habilitada, entrás con el enlace que te llega.</div></li>
+          <li><span>2</span><div><strong>Dibujás el lote</strong> en el mapa (o subís un KML o
+            shapefile) y cargás la fecha de siembra y el umbral de riego.</div></li>
+          <li><span>3</span><div><strong>En menos de una hora</strong> tenés la campaña calculada
+            desde la siembra, y desde ahí se actualiza cada mañana.</div></li>
+        </ol>
       </div>
     </section>
 
-    <section class="p-seccion">
-      <h2>Cómo funciona</h2>
-      <ol class="p-pasos">
-        <li><strong>Pedís acceso</strong> con tu correo. Cuando la cuenta está habilitada,
-          entrás con el enlace que te llega.</li>
-        <li><strong>Dibujás el lote</strong> en el mapa (o subís un KML o shapefile) y cargás la
-          fecha de siembra y el umbral de riego.</li>
-        <li><strong>En menos de una hora</strong> tenés la campaña calculada desde la siembra, y
-          desde ahí se actualiza cada mañana.</li>
-      </ol>
-    </section>
+    <div class="p-contenedor">
+      <section class="p-seccion">
+        <p class="p-antetitulo">Datos</p>
+        <h2>De dónde salen los datos</h2>
+        <ul class="p-fuentes">
+          <li><strong>Vegetación</strong>: Sentinel-2 L2A, Copernicus Data Space Ecosystem (10 m,
+            cada 5 días, nubes enmascaradas píxel a píxel).</li>
+          <li><strong>Lluvia y evapotranspiración</strong>: estación del SIGA del INTA más cercana con
+            datos al día; Open-Meteo para completar y para el pronóstico.</li>
+          <li><strong>Suelo</strong>: Cartas de Suelos de Córdoba publicadas por IDECOR, con el agua útil
+            estimada por Faule et al. (2024), INTA EEA Manfredi.</li>
+        </ul>
+      </section>
 
-    <section class="p-seccion">
-      <h2>De dónde salen los datos</h2>
-      <ul class="p-fuentes">
-        <li><strong>Vegetación</strong>: Sentinel-2 L2A, Copernicus Data Space Ecosystem (10 m,
-          cada 5 días, nubes enmascaradas píxel a píxel).</li>
-        <li><strong>Lluvia y evapotranspiración</strong>: estación del SIGA del INTA más cercana con
-          datos al día; Open-Meteo para completar y para el pronóstico.</li>
-        <li><strong>Suelo</strong>: Cartas de Suelos de Córdoba publicadas por IDECOR, con el agua útil
-          estimada por Faule et al. (2024), INTA EEA Manfredi.</li>
-      </ul>
-    </section>
+      <section class="p-seccion">
+        <p class="p-antetitulo">Preguntas frecuentes</p>
+        <h2>Antes de empezar</h2>
+        <details class="p-faq"><summary>¿Tiene costo?</summary>
+          <p>No. Es un proyecto personal, sin fines comerciales.</p></details>
+        <details class="p-faq"><summary>¿Quién ve mis lotes?</summary>
+          <p>Solo vos. Cada cuenta accede únicamente a sus lotes, y eso lo controla la base de datos,
+          no la página.</p></details>
+        <details class="p-faq"><summary>¿Funciona fuera de Córdoba?</summary>
+          <p>Sí, el balance y los índices funcionan en cualquier lugar. El perfil de suelo automático
+          solo está para Córdoba; en otras provincias se usa un perfil general o la calicata que cargues.</p></details>
+        <details class="p-faq"><summary>¿Reemplaza a una recorrida o una calicata?</summary>
+          <p>No. Es una estimación de apoyo para decidir: conviene contrastarla con lo que se ve en el
+          lote y, si se puede, cargar una calicata de siembra.</p></details>
+      </section>
 
-    <section class="p-seccion">
-      <h2>Preguntas frecuentes</h2>
-      <details class="p-faq"><summary>¿Tiene costo?</summary>
-        <p>No. Es un proyecto personal, sin fines comerciales.</p></details>
-      <details class="p-faq"><summary>¿Quién ve mis lotes?</summary>
-        <p>Solo vos. Cada cuenta accede únicamente a sus lotes, y eso lo controla la base de datos,
-        no la página.</p></details>
-      <details class="p-faq"><summary>¿Funciona fuera de Córdoba?</summary>
-        <p>Sí, el balance y los índices funcionan en cualquier lugar. El perfil de suelo automático
-        solo está para Córdoba; en otras provincias se usa un perfil general o la calicata que cargues.</p></details>
-      <details class="p-faq"><summary>¿Reemplaza a una recorrida o una calicata?</summary>
-        <p>No. Es una estimación de apoyo para decidir: conviene contrastarla con lo que se ve en el
-        lote y, si se puede, cargar una calicata de siembra.</p></details>
-    </section>
-
-    <footer class="p-pie">
-      Agrobot es un proyecto personal e independiente. Usa datos públicos de Copernicus, del INTA,
-      de IDECOR y de Open-Meteo, pero no es un servicio oficial de esas instituciones.
-    </footer>
+      <footer class="p-pie">
+        <p>Agrobot es un proyecto personal e independiente. Usa datos públicos de Copernicus, del INTA,
+        de IDECOR y de Open-Meteo, pero no es un servicio oficial de esas instituciones.</p>
+        <p>Fotos: <a href="https://unsplash.com/photos/wheat-field-y4xZxzN754M" target="_blank" rel="noopener">trigo</a>
+          y <a href="https://unsplash.com/photos/a-large-metal-structure-in-the-middle-of-a-field-wgeN2SE2sD0" target="_blank" rel="noopener">pivote</a>,
+          de Unsplash.</p>
+      </footer>
+    </div>
   </div>
 
   <!-- ======================= CUENTA EN REVISIÓN ======================= -->
-  <div id="pantalla-pendiente" class="login oculto">
-    <h1>Tu pedido está en revisión</h1>
-    <p class="subtitulo">Ya tenés cuenta en Agrobot (<span id="pend-email"></span>). Falta que la
-      habiliten: te llega un correo cuando esté lista, y ahí podés cargar tus lotes.</p>
-    <div class="acciones" style="margin-top:18px">
-      <button id="btn-pend-actualizar" class="principal">Ya me avisaron: actualizar</button>
-      <button id="btn-pend-salir">Salir</button>
+  <div id="pantalla-pendiente" class="p-pendiente oculto">
+    <div class="p-pendiente-tarjeta">
+      <p class="p-marca p-marca-oscura">Agrobot</p>
+      <h1>Tu pedido está en revisión</h1>
+      <p class="subtitulo">Ya tenés cuenta en Agrobot (<span id="pend-email"></span>). Falta que la
+        habiliten: te llega un correo cuando esté lista, y ahí podés cargar tus lotes.</p>
+      <div class="acciones" style="margin-top:18px">
+        <button id="btn-pend-actualizar" class="principal">Ya me avisaron: actualizar</button>
+        <button id="btn-pend-salir">Salir</button>
+      </div>
     </div>
   </div>
+
+<div class="envoltorio">
 
   <div id="app" class="oculto">
 

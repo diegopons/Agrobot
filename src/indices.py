@@ -35,7 +35,7 @@ from typing import Optional
 import requests
 
 from .auth_cdse import obtener_token
-from .ndvi_sentinelhub import resolucion_en_grados
+from .ndvi_sentinelhub import cobertura_pct, pixeles_del_lote, resolucion_en_grados
 
 logger = logging.getLogger(__name__)
 
@@ -142,10 +142,15 @@ def serie(client_id: str, client_secret: str, geojson: dict, desde: str, hasta: 
                       headers={"Authorization": f"Bearer {token}"})
     if r.status_code != 200:
         raise RuntimeError(f"Statistical API ({r.status_code}): {r.text[:300]}")
-    return interpretar_estadisticas(r.json(), min_cobertura_pct)
+    pixeles = pixeles_del_lote(token, geojson, desde, hasta, resx, resy, max_cloud_coverage)
+    return interpretar_estadisticas(r.json(), min_cobertura_pct, pixeles)
 
 
-def interpretar_estadisticas(body: dict, min_cobertura_pct: float = 70.0) -> list[dict]:
+def interpretar_estadisticas(body: dict, min_cobertura_pct: float = 70.0,
+                             pixeles: Optional[dict] = None) -> list[dict]:
+    """`pixeles` = {fecha: píxeles del polígono} (ver ndvi_sentinelhub.pixeles_del_lote):
+    la cobertura se mide contra el lote, no contra el rectángulo de la grilla."""
+    pixeles = pixeles or {}
     filas = []
     for intervalo in body.get("data", []):
         fecha = intervalo["interval"]["from"][:10]
@@ -153,7 +158,7 @@ def interpretar_estadisticas(body: dict, min_cobertura_pct: float = 70.0) -> lis
         stats_ndvi = (salidas.get("ndvi", {}).get("bands", {}).get("B0", {}).get("stats") or {})
         n = stats_ndvi.get("sampleCount", 0)
         validos = n - stats_ndvi.get("noDataCount", 0)
-        cobertura = 100 * validos / n if n else 0.0
+        cobertura = cobertura_pct(validos, fecha, pixeles, n)
         if validos <= 0 or cobertura < min_cobertura_pct:
             continue
         if n < 10:

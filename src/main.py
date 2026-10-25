@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 import sys
 from dataclasses import dataclass
 from datetime import date, timedelta
@@ -766,7 +767,13 @@ def main(config_path: str = "config.yaml") -> int:
         reiniciar=_env_bool("BH_REINICIAR_ESTADO"),
         enviar_resumen=_env_bool("BH_ENVIAR_RESUMEN"),
     )
-    solo_id = os.environ.get("BH_LOTE_ID", "").strip() or None
+    solo_id = os.environ.get("BH_LOTE_ID", "").strip().strip("'\"") or None
+    if solo_id and almacen.modo == "supabase" and not re.fullmatch(
+            r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}", solo_id):
+        log.error("El id de lote '%s' no es válido: tiene que tener la forma "
+                  "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx (36 caracteres). Revisá que se haya "
+                  "copiado completo.", solo_id)
+        return 1
 
     if almacen.modo == "local":
         aplicar_parametros_de_entorno(cfg)

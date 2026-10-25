@@ -217,6 +217,20 @@ telegram:
                                   # Bajar (ej. 80) para riego deficitario
                                   # controlado.
 
+# ---------------------------------------------------------------------------
+# Perfil de suelo desde la Carta de Suelos de Córdoba (IDECOR)
+# ---------------------------------------------------------------------------
+# Para los lotes sin calicata ni perfil cargado, la corrida consulta las cartas
+# 1:50.000 y 1:100.000 en el WFS de Mapas Córdoba y arma el perfil con el agua
+# útil a 1, 1,5 y 2 m de las unidades que cruza el lote, ponderadas por
+# superficie. Se consulta una vez por polígono (ver src/suelo_carta.py).
+suelo_carta:
+  habilitado: true
+  url: "https://idecor-ws.mapascordoba.gob.ar/geoserver/idecor/wfs"
+  # Si las unidades con dato de agua útil cubren menos que esto del lote
+  # (lagunas, zonas urbanas, fuera de las cartas), se usa el perfil por defecto.
+  min_cobertura_pct: 50
+
 suelo:
   # Perfil del lote y agua medida en la calicata de siembra.
   # Cargado desde la página el 2026-10-19.

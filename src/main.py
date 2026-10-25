@@ -1,82 +1,98 @@
 """
 main.py
 -------
-Orquestador de una corrida periódica del balance hídrico.
+Orquestador de una corrida del balance hídrico, para todos los lotes.
 
-Pensado para ser disparado por el Programador de Tareas de Windows (o cron,
-o lo que sea) cada N días. Cada corrida:
+Lo dispara GitHub Actions (o el Programador de Tareas de Windows). Cada corrida
+le pide los lotes al almacén (ver src/almacen.py) —el lote de config.yaml en
+modo local, o todos los lotes activos de todos los usuarios en Supabase— y,
+para cada uno:
 
-  1. Lee config.yaml y el estado de la corrida anterior (data/estado.json).
+  1. Lee el estado de la corrida anterior de ESE lote.
   2. Calcula qué rango de fechas es "nuevo" (desde el día siguiente al
      último procesado, hasta hoy - rezago).
-  3. Si no hay días nuevos, no hace nada (log y sale).
-  4. Descarga NDVI (Copernicus Data Space Ecosystem) y clima
-     (Copernicus Climate Data Store / AgERA5) para ese rango.
+  3. Si no hay días nuevos, pasa al lote siguiente.
+  4. Descarga NDVI (Copernicus Data Space Ecosystem) y clima para ese rango.
   5. Corre el modelo de balance hídrico día a día, partiendo del estado
      anterior.
-  6. Agrega los resultados nuevos al CSV histórico y guarda el nuevo estado.
-  7. Si el % de Agua Útil final quedó por debajo del umbral de riego, lo
-     deja bien visible en el log (alerta de riego).
+  6. Agrega los resultados nuevos a la serie del lote y guarda el nuevo estado.
+  7. Publica el resumen para el bot y el tablero, y avisa por Telegram al
+     dueño del lote si corresponde.
+
+Un lote que falla no frena a los demás: el error queda registrado en ese lote
+y la corrida termina con código 1 para que se vea en Actions.
 """
 from __future__ import annotations
 
 import logging
 import os
 import sys
+from dataclasses import dataclass
 from datetime import date, timedelta
 from pathlib import Path
+from typing import Optional
 
 import pandas as pd
 
 # Permite ejecutar tanto como módulo (`python -m src.main`) como script directo.
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from src.aoi import cargar_aoi
+from src.almacen import MAX_FECHAS_MOSAICO, Lote, crear_almacen
 from src.balance import procesar_dias_nuevos
-from src.clima_agera5 import descargar_agera5
-from src.clima_openmeteo import descargar_openmeteo, descargar_pronostico
+from src.clima_openmeteo import descargar_pronostico
 from src import pronostico as mod_pronostico
 from src import clima as mod_clima
 from src import publicar_estado as mod_estado_json
 from src.config import cargar_config
-from src.estado import (
-    append_resultados_csv,
-    archivar_csv,
-    cargar_estado,
-    guardar_estado,
-    huella_corrida,
-)
+from src.estado import huella_corrida
 from src.mapas_ndvi import generar_mosaico
 from src.ndvi_sentinelhub import obtener_serie_ndvi, rellenar_ndvi
 from src.notificaciones import armar_mensaje, debe_notificar, enviar_telegram
 from src.suelo import SUELO_PROPIEDADES_DEFAULT, precalcular_parametros_suelo
+
+log = logging.getLogger("main")
+
+
+class CorridaAbortada(RuntimeError):
+    """El lote no se puede procesar hoy; no se tocó su estado ni su serie."""
+
+
+@dataclass
+class Opciones:
+    """Lo que llega del formulario de "Run workflow", común a todos los lotes."""
+    fecha_fin: Optional[str] = None
+    reiniciar: bool = False
+    enviar_resumen: bool = False
 
 
 def _env_bool(nombre: str) -> bool:
     return os.environ.get(nombre, "").strip().lower() in ("1", "true", "yes", "si", "sí")
 
 
-def aplicar_parametros_de_entorno(cfg: dict, log) -> dict:
+# Parámetros de inicio que el formulario puede pisar en modo local
+OVERRIDES_LOCALES = [
+    ("BH_FECHA_SIEMBRA", ("campana", "fecha_siembra"), str),
+    ("BH_AU_INICIAL_MM", ("campana", "au_real_inicial_mm"), float),
+    ("BH_PROF_RAIZ_INICIAL_CM", ("campana", "prof_raiz_inicial_cm"), float),
+    ("BH_UMBRAL_RIEGO_PCT", ("balance", "umbral_riego_pct"), float),
+    ("BH_PROF_RAIZ_MAX_CM", ("balance", "prof_raiz_max_cm"), float),
+    ("BH_MODO_AVISO", ("telegram", "modo"), str),
+    ("BH_NOMBRE_LOTE", ("telegram", "nombre_lote"), str),
+    ("BH_REZAGO_CLIMA", ("rezago_dias", "clima"), int),
+    ("BH_EFICIENCIA_RIEGO", ("telegram", "eficiencia_aplicacion"), float),
+]
+
+
+def aplicar_parametros_de_entorno(cfg: dict) -> dict:
     """Permite sobrescribir parámetros de inicio sin editar config.yaml.
 
     El formulario de "Run workflow" en GitHub Actions pasa estos valores como
     variables de entorno. Si vienen vacíos (una corrida programada, por
-    ejemplo), se usa lo que diga config.yaml.
+    ejemplo), se usa lo que diga config.yaml. Solo vale en modo local: con
+    Supabase, los parámetros de cada lote los define su dueño en el tablero.
     """
-    overrides = [
-        ("BH_FECHA_SIEMBRA", ("campana", "fecha_siembra"), str),
-        ("BH_AU_INICIAL_MM", ("campana", "au_real_inicial_mm"), float),
-        ("BH_PROF_RAIZ_INICIAL_CM", ("campana", "prof_raiz_inicial_cm"), float),
-        ("BH_UMBRAL_RIEGO_PCT", ("balance", "umbral_riego_pct"), float),
-        ("BH_PROF_RAIZ_MAX_CM", ("balance", "prof_raiz_max_cm"), float),
-        ("BH_MODO_AVISO", ("telegram", "modo"), str),
-        ("BH_NOMBRE_LOTE", ("telegram", "nombre_lote"), str),
-        ("BH_REZAGO_CLIMA", ("rezago_dias", "clima"), int),
-        ("BH_EFICIENCIA_RIEGO", ("telegram", "eficiencia_aplicacion"), float),
-    ]
-
     aplicados = []
-    for var, (seccion, clave), tipo in overrides:
+    for var, (seccion, clave), tipo in OVERRIDES_LOCALES:
         crudo = os.environ.get(var, "").strip()
         if not crudo:
             continue
@@ -94,30 +110,25 @@ def aplicar_parametros_de_entorno(cfg: dict, log) -> dict:
     return cfg
 
 
-def enviar_resumen_actual(cfg: dict, log) -> None:
+def enviar_resumen_actual(lote: Lote, almacen, guardado) -> None:
     """Reenvía por Telegram el estado del último día calculado.
 
     Se usa cuando se pide un resumen a demanda y no hay días nuevos que
-    procesar: en vez de no mandar nada, se lee la última fila del CSV
-    histórico y se arma el mensaje con eso.
+    procesar: en vez de no mandar nada, se lee la última fila de la serie y se
+    arma el mensaje con eso.
     """
-    ruta_csv = Path(cfg["rutas"]["salida_csv"])
-    if not ruta_csv.exists():
+    df = almacen.leer_serie(lote, guardado)
+    if df.empty:
         log.warning("Se pidió un resumen pero todavía no hay resultados calculados.")
         return
 
-    df = pd.read_csv(ruta_csv, parse_dates=["fecha"])
-    if df.empty:
-        log.warning("Se pidió un resumen pero el CSV está vacío.")
-        return
-
     tg_token = os.environ.get("TELEGRAM_BOT_TOKEN")
-    tg_chat_id = os.environ.get("TELEGRAM_CHAT_ID")
-    if not tg_token or not tg_chat_id:
-        log.warning("Se pidió un resumen pero faltan las credenciales de Telegram.")
+    if not tg_token or not lote.telegram_chat_id:
+        log.warning("Se pidió un resumen pero falta el token del bot o el chat del usuario.")
         return
 
     ultimo = df.iloc[-1]
+    cfg = lote.cfg
     cfg_tg = cfg.get("telegram", {})
     mensaje = armar_mensaje(
         fecha=ultimo["fecha"].date(),
@@ -132,7 +143,7 @@ def enviar_resumen_actual(cfg: dict, log) -> None:
         eficiencia_aplicacion=cfg_tg.get("eficiencia_aplicacion", 0.85),
         reposicion_objetivo_pct=cfg_tg.get("reposicion_objetivo_pct", 100.0),
     )
-    if enviar_telegram(tg_token, tg_chat_id, mensaje):
+    if enviar_telegram(tg_token, lote.telegram_chat_id, mensaje):
         log.info("Resumen enviado por Telegram (datos al %s).", ultimo["fecha"].date())
 
 
@@ -145,35 +156,19 @@ def configurar_logging(log_file: str) -> None:
     )
 
 
-def main(config_path: str = "config.yaml") -> int:
-    cfg = cargar_config(config_path)
-    configurar_logging(cfg["rutas"]["log_file"])
-    log = logging.getLogger("main")
+def correr_lote(lote: Lote, almacen, cdse: tuple[str, str], opciones: Opciones) -> str:
+    """Procesa los días nuevos de un lote. Devuelve "ok" o "sin_novedad".
 
-    log.info("========== Nueva corrida de Balance Hídrico ==========")
+    Levanta CorridaAbortada (u otra excepción) si el lote no se pudo procesar.
+    """
+    cfg = lote.cfg
+    cdse_client_id, cdse_client_secret = cdse
 
-    # Parámetros que pueden llegar del formulario de "Run workflow"
-    cfg = aplicar_parametros_de_entorno(cfg, log)
-    reiniciar_estado = _env_bool("BH_REINICIAR_ESTADO")
-    enviar_resumen = _env_bool("BH_ENVIAR_RESUMEN")
-
-    # 1. Credenciales (nunca en config.yaml)
-    cdse_client_id = os.environ.get("CDSE_CLIENT_ID")
-    cdse_client_secret = os.environ.get("CDSE_CLIENT_SECRET")
-    if not cdse_client_id or not cdse_client_secret:
-        log.error(
-            "Faltan variables de entorno CDSE_CLIENT_ID / CDSE_CLIENT_SECRET. "
-            "Ver README.md para cómo crearlas y configurarlas."
-        )
-        return 1
-
-    # 2. AOI
-    # 'archivo' es la clave actual; 'shapefile' se mantiene por compatibilidad
-    ruta_aoi = cfg["aoi"].get("archivo") or cfg["aoi"]["shapefile"]
-    aoi_info = cargar_aoi(ruta_aoi)
+    # 1. AOI
+    aoi_info = lote.aoi()
     log.info("Lote cargado: %.2f ha. BBox=%s", aoi_info["area_ha"], aoi_info["bbox"])
 
-    # 3. Estado y suelo
+    # 2. Estado y suelo
     _orden_clima = [
         str(f).lower()
         for f in (cfg.get("clima", {}).get("fuentes")
@@ -187,25 +182,15 @@ def main(config_path: str = "config.yaml") -> int:
         fuentes_clima=_orden_clima,
         suelo=cfg.get("suelo"),
     )
-    estado, motivo_reinicio = cargar_estado(
-        cfg["rutas"]["estado_json"],
-        au_real_inicial=cfg["campana"]["au_real_inicial_mm"],
-        prof_raiz_inicial=cfg["campana"]["prof_raiz_inicial_cm"],
-        huella=huella,
-        reiniciar=reiniciar_estado,
-        devolver_motivo=True,
-    )
+    guardado = almacen.cargar_estado(lote, huella, reiniciar=opciones.reiniciar)
+    estado = guardado.balance
 
-    # Si el balance arranca de cero, la serie anterior corresponde a otro
-    # cálculo: se aparta para que no se mezcle con la nueva.
-    if motivo_reinicio:
-        archivar_csv(cfg["rutas"]["salida_csv"], motivo_reinicio)
     df_suelo = precalcular_parametros_suelo(
         cfg.get("suelo", SUELO_PROPIEDADES_DEFAULT),
         llenado_inicial_pct=cfg["balance"].get("llenado_inicial_pct", 70.0),
     )
 
-    # 4. Definir rango de fechas nuevo
+    # 3. Definir rango de fechas nuevo
     if estado.ultima_fecha_procesada:
         fecha_desde = pd.to_datetime(estado.ultima_fecha_procesada) + timedelta(days=1)
     else:
@@ -226,15 +211,12 @@ def main(config_path: str = "config.yaml") -> int:
     fecha_hasta_disponible = hoy - timedelta(days=rezago)
 
     # El usuario puede pedir una fecha de fin. Vacío = hasta donde haya datos.
-    pedido = os.environ.get("BH_FECHA_FIN", "").strip()
-    if pedido:
+    fecha_pedida = None
+    if opciones.fecha_fin:
         try:
-            fecha_pedida = pd.to_datetime(pedido)
+            fecha_pedida = pd.to_datetime(opciones.fecha_fin)
         except (ValueError, TypeError):
-            log.warning("Fecha de fin inválida ('%s'): se ignora.", pedido)
-            fecha_pedida = None
-    else:
-        fecha_pedida = None
+            log.warning("Fecha de fin inválida ('%s'): se ignora.", opciones.fecha_fin)
 
     if fecha_pedida is not None:
         if fecha_pedida > hoy:
@@ -247,7 +229,7 @@ def main(config_path: str = "config.yaml") -> int:
             # Se intenta igual: los días sin clima se recortan más abajo, en
             # vez de entrar al balance como ceros y ensuciar la serie.
             log.warning(
-                "Se pidió hasta el %s, pero AgERA5 suele tener unos %d días de "
+                "Se pidió hasta el %s, pero el clima suele tener unos %d días de "
                 "rezago. Se intentará igual y se recortará hasta donde haya datos.",
                 fecha_pedida.date(), rezago,
             )
@@ -260,17 +242,17 @@ def main(config_path: str = "config.yaml") -> int:
             "Nada nuevo para procesar todavía (último día procesado: %s; "
             "próximo disponible recién el %s por el rezago de datos).",
             estado.ultima_fecha_procesada,
-            (fecha_desde + timedelta(days=0)).date(),
+            fecha_desde.date(),
         )
-        if enviar_resumen:
-            enviar_resumen_actual(cfg, log)
-        return 0
+        if opciones.enviar_resumen:
+            enviar_resumen_actual(lote, almacen, guardado)
+        return "sin_novedad"
 
     fecha_desde_str = fecha_desde.strftime("%Y-%m-%d")
     fecha_hasta_str = fecha_hasta.strftime("%Y-%m-%d")
     log.info("Procesando rango nuevo: %s -> %s", fecha_desde_str, fecha_hasta_str)
 
-    # 5. NDVI (Copernicus Data Space Ecosystem)
+    # 4. NDVI (Copernicus Data Space Ecosystem)
     log.info("Descargando NDVI (Sentinel-2 / CDSE Statistical API)...")
     df_ndvi = obtener_serie_ndvi(
         cdse_client_id,
@@ -298,7 +280,7 @@ def main(config_path: str = "config.yaml") -> int:
         for d in df_ndvi.loc[df_ndvi["ndvi"].notna(), "fecha"].sort_values()
     ]
 
-    # 6. Clima: una o varias fuentes, por prioridad (ver src/clima.py)
+    # 5. Clima: una o varias fuentes, por prioridad (ver src/clima.py)
     cfg_clima = cfg.get("clima", {})
     fuentes, estacion_siga = mod_clima.armar_fuentes(
         cfg, aoi_info["bbox"], fecha_desde_str, fecha_hasta_str
@@ -321,13 +303,12 @@ def main(config_path: str = "config.yaml") -> int:
     # Sin clima no hay balance: con NaN el día se procesaría como ETc 0 y
     # lluvia 0, que no es "no pasó nada" sino "no sabemos qué pasó".
     if df_clima[["precipitacion_mm", "eto_mm"]].isna().all().all():
-        log.error(
-            "Ninguna fuente de clima devolvió datos para %s a %s. Se aborta la "
-            "corrida sin tocar el estado ni el CSV.", fecha_desde_str, fecha_hasta_str
+        raise CorridaAbortada(
+            f"Ninguna fuente de clima devolvió datos para {fecha_desde_str} a "
+            f"{fecha_hasta_str}. No se tocó el estado ni la serie."
         )
-        return 1
 
-    # 7. Merge en calendario diario completo del rango
+    # 6. Merge en calendario diario completo del rango
     rango_fechas = pd.date_range(fecha_desde_str, fecha_hasta_str, freq="D")
     df_dias = pd.DataFrame({"fecha": rango_fechas})
     df_dias = df_dias.merge(df_clima, on="fecha", how="left")
@@ -373,7 +354,7 @@ def main(config_path: str = "config.yaml") -> int:
     # Los días del final sin dato de clima no se procesan: entrarían al balance
     # con ETo y lluvia en cero, lo que simula un día sin consumo ni aporte y
     # deja una serie que parece completa pero no lo es. Mejor cortar ahí y
-    # retomarlos cuando AgERA5 los publique.
+    # retomarlos cuando la fuente los publique.
     sin_clima = df_dias["eto_mm"].isna()
     if sin_clima.any():
         primer_hueco = sin_clima.idxmax() if sin_clima.iloc[-1] else None
@@ -397,13 +378,13 @@ def main(config_path: str = "config.yaml") -> int:
 
     if df_dias.empty:
         log.info("No quedaron días con datos completos para procesar.")
-        if enviar_resumen:
-            enviar_resumen_actual(cfg, log)
-        return 0
+        if opciones.enviar_resumen:
+            enviar_resumen_actual(lote, almacen, guardado)
+        return "sin_novedad"
 
     df_dias["riego_mm"] = 0.0  # cargar riegos reales acá si se registran en campo
 
-    # 8. Correr el balance de forma incremental
+    # 7. Correr el balance de forma incremental
     df_resultados, estado_nuevo = procesar_dias_nuevos(
         df_dias,
         estado,
@@ -418,204 +399,302 @@ def main(config_path: str = "config.yaml") -> int:
         tabla_prof_raiz=cfg["balance"].get("prof_raiz_por_dds"),
         fecha_siembra=cfg["campana"]["fecha_siembra"],
     )
+    # El balance no arrastra el origen de cada dato de clima; se lo vuelve a
+    # pegar para que la serie diga de qué fuente salió cada día.
+    columnas_origen = [c for c in ("fuente_pp", "fuente_eto") if c in df_dias.columns]
+    if columnas_origen and not df_resultados.empty:
+        df_resultados = df_resultados.merge(
+            df_dias[["fecha", *columnas_origen]], on="fecha", how="left")
 
-    # 9. Guardar CSV histórico y estado
-    append_resultados_csv(cfg["rutas"]["salida_csv"], df_resultados)
+    # 8. Guardar serie y estado
+    guardado.balance = estado_nuevo
+    if fechas_con_imagen:
+        guardado.fechas_con_imagen = sorted(
+            set(guardado.fechas_con_imagen) | set(fechas_con_imagen)
+        )[-MAX_FECHAS_MOSAICO:]
+    almacen.guardar(lote, df_resultados, guardado, huella)
 
-    # Para el JSON de los agentes hace falta la campaña entera, no solo los días
-    # nuevos de esta corrida: se relee el CSV ya consolidado.
+    # Para el resumen hace falta la campaña entera, no solo los días nuevos de
+    # esta corrida: se relee la serie ya consolidada.
     try:
-        df_completo_para_json = pd.read_csv(
-            cfg["rutas"]["salida_csv"], parse_dates=["fecha"]
-        )
+        df_completo = almacen.leer_serie(lote, guardado)
     except Exception:  # noqa: BLE001
-        df_completo_para_json = df_resultados
-    guardar_estado(cfg["rutas"]["estado_json"], estado_nuevo, huella=huella)
+        df_completo = df_resultados
+    if df_completo.empty:
+        df_completo = df_resultados
 
-    # 10. Mosaico de imágenes NDVI (si está habilitado)
+    # 9. Mosaico de imágenes NDVI (si está habilitado y hay imágenes nuevas)
     cfg_mapas = cfg.get("mapas", {})
     if cfg_mapas.get("habilitado", True) and fechas_con_imagen:
         try:
-            generar_mosaico(
+            destino = almacen.ruta_mosaico(lote)
+            if generar_mosaico(
                 cdse_client_id,
                 cdse_client_secret,
                 aoi_info["geojson"],
-                fechas_con_imagen,
-                destino=cfg_mapas.get("salida", "docs/ndvi_mosaico.png"),
+                guardado.fechas_con_imagen,
+                destino=destino,
                 columnas=cfg_mapas.get("columnas", 4),
                 lado_px=cfg_mapas.get("lado_px", 220),
                 titulo=f"NDVI — {cfg.get('telegram', {}).get('nombre_lote', 'Lote')}",
-            )
+            ):
+                almacen.publicar_mosaico(lote, destino)
         except Exception as e:  # noqa: BLE001
             # Un fallo acá no debe tumbar la corrida: el balance ya está calculado
             # y guardado, y el mosaico es información complementaria.
             log.warning("No se pudo generar el mosaico de NDVI: %s", e)
 
-    # 11. Notificación de estado / alerta de riego
-    if not df_resultados.empty:
-        ultimo = df_resultados.iloc[-1]
-        fecha_ultimo = (
-            ultimo["fecha"].date() if hasattr(ultimo["fecha"], "date") else ultimo["fecha"]
-        )
-        log.info(
-            "Última fecha procesada: %s | %%AU=%.1f | AU real=%.1f mm | NDVI=%.3f",
-            fecha_ultimo,
-            ultimo["pct_au"],
-            ultimo["au_real_mm"],
-            ultimo["ndvi"],
-        )
+    # 10. Resumen, pronóstico y aviso de riego
+    if df_resultados.empty:
+        return "ok"
 
-        umbral = cfg["balance"]["umbral_riego_pct"]
+    ultimo = df_resultados.iloc[-1]
+    fecha_ultimo = (
+        ultimo["fecha"].date() if hasattr(ultimo["fecha"], "date") else ultimo["fecha"]
+    )
+    log.info(
+        "Última fecha procesada: %s | %%AU=%.1f | AU real=%.1f mm | NDVI=%.3f",
+        fecha_ultimo,
+        ultimo["pct_au"],
+        ultimo["au_real_mm"],
+        ultimo["ndvi"],
+    )
 
-        # --- Proyección con pronóstico (no toca el estado ni el CSV) ---
-        linea_pronostico = None
-        df_pronostico_pub = None
-        ajuste_riego = None
-        cfg_pron = cfg.get("pronostico", {})
-        if cfg_pron.get("habilitado", False) and any(
-                n == "openmeteo" for n, _ in fuentes):
-            try:
-                df_fc = descargar_pronostico(
-                    aoi_info["bbox"],
-                    dias=int(cfg_pron.get("dias", 10)),
-                    zona_horaria=cfg_clima.get(
-                        "zona_horaria", "America/Argentina/Cordoba"),
-                )
-                df_proy = mod_pronostico.proyectar(
-                    estado_nuevo,
-                    df_fc,
-                    df_suelo,
-                    ndvi_actual=float(ultimo["ndvi"]),
-                    umbral_riego_pct=umbral,
-                    incremento_raiz_diario_cm=cfg["balance"]["incremento_raiz_diario_cm"],
-                    prof_raiz_max_cm=cfg["balance"]["prof_raiz_max_cm"],
-                    kc_a=cfg["balance"]["kc_a"],
-                    kc_b=cfg["balance"]["kc_b"],
-                    recarga_por_capa=cfg["balance"].get("recarga_por_capa", True),
-                    umbral_lluvia_efectiva_mm=cfg["balance"].get(
-                        "umbral_lluvia_efectiva_mm", 15.0),
-                    tabla_prof_raiz=cfg["balance"].get("prof_raiz_por_dds"),
-                    fecha_siembra=cfg["campana"]["fecha_siembra"],
-                )
-                df_pronostico_pub = df_fc
-                linea_pronostico = mod_pronostico.resumir(
-                    df_proy, umbral, ya_en_deficit=float(ultimo["pct_au"]) < umbral
-                )
-                if linea_pronostico:
-                    log.info("Pronóstico: %s", linea_pronostico)
+    umbral = cfg["balance"]["umbral_riego_pct"]
 
-                # Lámina descontando la lluvia de los próximos días. Se
-                # calcula siempre; quien la publica decide si corresponde
-                # mostrarla (solo si el lote está por debajo del umbral).
-                cfg_tg_aj = cfg.get("telegram", {})
-                falta_hoy = max(
-                    0.0,
-                    float(ultimo["au_max_mm"])
-                    * (float(cfg_tg_aj.get("reposicion_objetivo_pct", 100.0)) / 100.0)
-                    - float(ultimo["au_real_mm"]),
-                )
-                ajuste_riego = mod_pronostico.lamina_ajustada(
-                    falta_hoy,
-                    df_fc,
-                    eficiencia_aplicacion=float(
-                        cfg_tg_aj.get("eficiencia_aplicacion", 0.85)),
-                    dias_descuento=int(cfg_pron.get("dias_descuento", 3)),
-                    umbral_lluvia_efectiva_mm=cfg["balance"].get(
-                        "umbral_lluvia_efectiva_mm", 15.0),
-                )
-                if ajuste_riego:
-                    log.info(
-                        "Riego: reposición total %.1f mm netos | ajustada "
-                        "%.1f mm netos (descuenta %.1f mm hasta %s).",
-                        falta_hoy,
-                        ajuste_riego["lamina_neta_mm"],
-                        ajuste_riego["descuento_mm"],
-                        ajuste_riego["hasta"],
-                    )
-            except Exception as e:  # noqa: BLE001
-                # El balance ya está calculado y guardado: un fallo del
-                # pronóstico no debe tumbar la corrida.
-                log.warning("No se pudo calcular la proyección: %s", e)
-
-        if ultimo["pct_au"] < umbral:
-            log.warning(
-                "⚠️  ALERTA DE RIEGO: %% Agua Útil (%.1f%%) por debajo del umbral (%s%%).",
-                ultimo["pct_au"],
-                umbral,
-            )
-
-        # --- JSON para agentes conversacionales (n8n, bots) ---
+    # --- Proyección con pronóstico (no toca el estado ni la serie) ---
+    linea_pronostico = None
+    df_pronostico_pub = None
+    ajuste_riego = None
+    cfg_pron = cfg.get("pronostico", {})
+    if cfg_pron.get("habilitado", False) and any(
+            n == "openmeteo" for n, _ in fuentes):
         try:
-            mod_estado_json.publicar(
-                mod_estado_json.construir_estado(
-                    df_completo_para_json,
-                    cfg,
-                    aoi_info,
-                    estacion_siga=estacion_siga,
-                    detalle_clima=detalle_clima,
-                    linea_pronostico=linea_pronostico,
-                    df_pronostico=df_pronostico_pub,
-                    ajuste_riego=ajuste_riego,
-                    diag_ndvi=diag_ndvi,
-                ),
-                destino=cfg.get("rutas", {}).get(
-                    "estado_json_publico", "docs/estado_actual.json"),
+            df_fc = descargar_pronostico(
+                aoi_info["bbox"],
+                dias=int(cfg_pron.get("dias", 10)),
+                zona_horaria=cfg_clima.get(
+                    "zona_horaria", "America/Argentina/Cordoba"),
             )
-        except Exception as e:  # noqa: BLE001
-            # El balance ya está guardado: que falle el JSON no debe tumbar nada.
-            log.warning("No se pudo publicar el estado para agentes: %s", e)
+            df_proy = mod_pronostico.proyectar(
+                estado_nuevo,
+                df_fc,
+                df_suelo,
+                ndvi_actual=float(ultimo["ndvi"]),
+                umbral_riego_pct=umbral,
+                incremento_raiz_diario_cm=cfg["balance"]["incremento_raiz_diario_cm"],
+                prof_raiz_max_cm=cfg["balance"]["prof_raiz_max_cm"],
+                kc_a=cfg["balance"]["kc_a"],
+                kc_b=cfg["balance"]["kc_b"],
+                recarga_por_capa=cfg["balance"].get("recarga_por_capa", True),
+                umbral_lluvia_efectiva_mm=cfg["balance"].get(
+                    "umbral_lluvia_efectiva_mm", 15.0),
+                tabla_prof_raiz=cfg["balance"].get("prof_raiz_por_dds"),
+                fecha_siembra=cfg["campana"]["fecha_siembra"],
+            )
+            df_pronostico_pub = df_fc
+            linea_pronostico = mod_pronostico.resumir(
+                df_proy, umbral, ya_en_deficit=float(ultimo["pct_au"]) < umbral
+            )
+            if linea_pronostico:
+                log.info("Pronóstico: %s", linea_pronostico)
 
-        # --- Telegram ---
-        cfg_tg = cfg.get("telegram", {})
-        if cfg_tg.get("habilitado", False):
-            tg_token = os.environ.get("TELEGRAM_BOT_TOKEN")
-            tg_chat_id = os.environ.get("TELEGRAM_CHAT_ID")
-            if not tg_token or not tg_chat_id:
-                log.warning(
-                    "Telegram habilitado en config pero faltan TELEGRAM_BOT_TOKEN / "
-                    "TELEGRAM_CHAT_ID. Se omite la notificación."
+            # Lámina descontando la lluvia de los próximos días. Se
+            # calcula siempre; quien la publica decide si corresponde
+            # mostrarla (solo si el lote está por debajo del umbral).
+            cfg_tg_aj = cfg.get("telegram", {})
+            falta_hoy = max(
+                0.0,
+                float(ultimo["au_max_mm"])
+                * (float(cfg_tg_aj.get("reposicion_objetivo_pct", 100.0)) / 100.0)
+                - float(ultimo["au_real_mm"]),
+            )
+            ajuste_riego = mod_pronostico.lamina_ajustada(
+                falta_hoy,
+                df_fc,
+                eficiencia_aplicacion=float(
+                    cfg_tg_aj.get("eficiencia_aplicacion", 0.85)),
+                dias_descuento=int(cfg_pron.get("dias_descuento", 3)),
+                umbral_lluvia_efectiva_mm=cfg["balance"].get(
+                    "umbral_lluvia_efectiva_mm", 15.0),
+            )
+            if ajuste_riego:
+                log.info(
+                    "Riego: reposición total %.1f mm netos | ajustada "
+                    "%.1f mm netos (descuenta %.1f mm hasta %s).",
+                    falta_hoy,
+                    ajuste_riego["lamina_neta_mm"],
+                    ajuste_riego["descuento_mm"],
+                    ajuste_riego["hasta"],
                 )
+        except Exception as e:  # noqa: BLE001
+            # El balance ya está calculado y guardado: un fallo del
+            # pronóstico no debe tumbar la corrida.
+            log.warning("No se pudo calcular la proyección: %s", e)
+
+    if ultimo["pct_au"] < umbral:
+        log.warning(
+            "⚠️  ALERTA DE RIEGO: %% Agua Útil (%.1f%%) por debajo del umbral (%s%%).",
+            ultimo["pct_au"],
+            umbral,
+        )
+
+    # --- Resumen para agentes conversacionales (n8n, bots) y el tablero ---
+    try:
+        almacen.publicar_resumen(
+            lote,
+            mod_estado_json.construir_estado(
+                df_completo,
+                cfg,
+                aoi_info,
+                estacion_siga=estacion_siga,
+                detalle_clima=detalle_clima,
+                linea_pronostico=linea_pronostico,
+                df_pronostico=df_pronostico_pub,
+                ajuste_riego=ajuste_riego,
+                diag_ndvi=diag_ndvi,
+            ),
+        )
+    except Exception as e:  # noqa: BLE001
+        # El balance ya está guardado: que falle el resumen no debe tumbar nada.
+        log.warning("No se pudo publicar el estado para agentes: %s", e)
+
+    # --- Telegram, al dueño del lote ---
+    cfg_tg = cfg.get("telegram", {})
+    if cfg_tg.get("habilitado", False):
+        tg_token = os.environ.get("TELEGRAM_BOT_TOKEN")
+        if not tg_token or not lote.telegram_chat_id:
+            log.info(
+                "Sin aviso por Telegram: %s.",
+                "falta TELEGRAM_BOT_TOKEN" if not tg_token
+                else "el usuario no vinculó su Telegram",
+            )
+        else:
+            # %AU del día anterior al bloque nuevo, para detectar el cruce
+            # de umbral (viene del estado previo, no del df de esta corrida).
+            pct_au_previo = None
+            if len(df_resultados) > 1:
+                pct_au_previo = float(df_resultados.iloc[-2]["pct_au"])
+            elif estado.ultima_fecha_procesada:
+                # Corrida con un solo día nuevo: comparar contra el estado guardado
+                au_max_ref = float(ultimo["au_max_mm"])
+                if au_max_ref > 0:
+                    pct_au_previo = (estado.au_real_mm / au_max_ref) * 100
+
+            # Un resumen pedido a mano se manda siempre, sin importar el modo
+            if opciones.enviar_resumen or debe_notificar(
+                float(ultimo["pct_au"]),
+                pct_au_previo,
+                umbral,
+                modo=cfg_tg.get("modo", "cruce"),
+            ):
+                lluvia_7d = float(df_completo.tail(7)["precipitacion_mm"].sum())
+                mensaje = armar_mensaje(
+                    fecha=fecha_ultimo,
+                    au_real_mm=float(ultimo["au_real_mm"]),
+                    au_max_mm=float(ultimo["au_max_mm"]),
+                    pct_au=float(ultimo["pct_au"]),
+                    ndvi=float(ultimo["ndvi"]),
+                    etc_mm=float(ultimo["etc_ajustada_mm"]),
+                    precipitacion_7d_mm=lluvia_7d,
+                    umbral_riego_pct=umbral,
+                    nombre_lote=cfg_tg.get("nombre_lote", "Lote"),
+                    eficiencia_aplicacion=cfg_tg.get("eficiencia_aplicacion", 0.85),
+                    reposicion_objetivo_pct=cfg_tg.get("reposicion_objetivo_pct", 100.0),
+                    linea_pronostico=linea_pronostico,
+                    ajuste_riego=ajuste_riego,
+                )
+                enviar_telegram(tg_token, lote.telegram_chat_id, mensaje)
             else:
-                # %AU del día anterior al bloque nuevo, para detectar el cruce
-                # de umbral (viene del estado previo, no del df de esta corrida).
-                pct_au_previo = None
-                if len(df_resultados) > 1:
-                    pct_au_previo = float(df_resultados.iloc[-2]["pct_au"])
-                elif estado.ultima_fecha_procesada:
-                    # Corrida con un solo día nuevo: comparar contra el estado guardado
-                    au_max_ref = float(ultimo["au_max_mm"])
-                    if au_max_ref > 0:
-                        pct_au_previo = (estado.au_real_mm / au_max_ref) * 100
+                log.info("Sin condiciones para notificar (modo=%s).", cfg_tg.get("modo", "cruce"))
 
-                # Un resumen pedido a mano se manda siempre, sin importar el modo
-                if enviar_resumen or debe_notificar(
-                    float(ultimo["pct_au"]),
-                    pct_au_previo,
-                    umbral,
-                    modo=cfg_tg.get("modo", "cruce"),
-                ):
-                    lluvia_7d = float(df_resultados.tail(7)["precipitacion_mm"].sum())
-                    mensaje = armar_mensaje(
-                        fecha=fecha_ultimo,
-                        au_real_mm=float(ultimo["au_real_mm"]),
-                        au_max_mm=float(ultimo["au_max_mm"]),
-                        pct_au=float(ultimo["pct_au"]),
-                        ndvi=float(ultimo["ndvi"]),
-                        etc_mm=float(ultimo["etc_ajustada_mm"]),
-                        precipitacion_7d_mm=lluvia_7d,
-                        umbral_riego_pct=umbral,
-                        nombre_lote=cfg_tg.get("nombre_lote", "Lote 20"),
-                        eficiencia_aplicacion=cfg_tg.get("eficiencia_aplicacion", 0.85),
-                        reposicion_objetivo_pct=cfg_tg.get("reposicion_objetivo_pct", 100.0),
-                        linea_pronostico=linea_pronostico,
-                        ajuste_riego=ajuste_riego,
-                    )
-                    enviar_telegram(tg_token, tg_chat_id, mensaje)
-                else:
-                    log.info("Sin condiciones para notificar (modo=%s).", cfg_tg.get("modo", "cruce"))
+    return "ok"
 
-    log.info("Corrida finalizada OK.")
-    return 0
+
+def main(config_path: str = "config.yaml") -> int:
+    cfg = cargar_config(config_path)
+    configurar_logging(cfg["rutas"]["log_file"])
+
+    log.info("========== Nueva corrida de Balance Hídrico ==========")
+
+    # Credenciales (nunca en config.yaml)
+    cdse = (os.environ.get("CDSE_CLIENT_ID"), os.environ.get("CDSE_CLIENT_SECRET"))
+    if not all(cdse):
+        log.error(
+            "Faltan variables de entorno CDSE_CLIENT_ID / CDSE_CLIENT_SECRET. "
+            "Ver README.md para cómo crearlas y configurarlas."
+        )
+        return 1
+
+    try:
+        almacen = crear_almacen(cfg)
+    except RuntimeError as e:
+        log.error("%s", e)
+        return 1
+    log.info("Almacén: %s", almacen.modo)
+
+    opciones = Opciones(
+        fecha_fin=os.environ.get("BH_FECHA_FIN", "").strip() or None,
+        reiniciar=_env_bool("BH_REINICIAR_ESTADO"),
+        enviar_resumen=_env_bool("BH_ENVIAR_RESUMEN"),
+    )
+    solo_id = os.environ.get("BH_LOTE_ID", "").strip() or None
+
+    if almacen.modo == "local":
+        aplicar_parametros_de_entorno(cfg)
+    else:
+        ignorados = [v for v, _, _ in OVERRIDES_LOCALES if os.environ.get(v, "").strip()]
+        if ignorados:
+            log.warning(
+                "Con Supabase los parámetros de cada lote se cargan en el tablero: "
+                "se ignoran %s.", ", ".join(ignorados),
+            )
+        if opciones.reiniciar and not solo_id:
+            log.warning(
+                "Se pidió reiniciar sin indicar un lote: se ignora, para no "
+                "recalcular los lotes de todos los usuarios. Indicar BH_LOTE_ID."
+            )
+            opciones.reiniciar = False
+
+    try:
+        lotes = almacen.lotes(solo_id=solo_id)
+    except Exception as e:  # noqa: BLE001
+        log.error("No se pudo leer la lista de lotes: %s", e)
+        return 1
+    if not lotes:
+        log.info("No hay lotes activos para procesar%s.",
+                 f" con id {solo_id}" if solo_id else "")
+        return 1 if almacen.errores_de_carga else 0
+
+    log.info("Lotes a procesar: %d", len(lotes))
+    resultados: dict[str, str] = {}
+    for lote in lotes:
+        log.info("────────── Lote %s ──────────", lote.etiqueta)
+        try:
+            resultados[lote.etiqueta] = correr_lote(lote, almacen, cdse, opciones)
+            almacen.registrar_corrida(lote)
+        except Exception as e:  # noqa: BLE001
+            if isinstance(e, CorridaAbortada):
+                log.error("Lote %s: %s", lote.etiqueta, e)
+            else:
+                log.exception("Lote %s: la corrida falló.", lote.etiqueta)
+            resultados[lote.etiqueta] = "error"
+            try:
+                almacen.registrar_corrida(lote, error=str(e) or type(e).__name__)
+            except Exception as e2:  # noqa: BLE001
+                log.warning("No se pudo registrar el error del lote: %s", e2)
+
+    errores = [n for n, r in resultados.items() if r == "error"]
+    log.info(
+        "Resumen: %d lotes · %d con días nuevos · %d sin novedad · %d con error%s",
+        len(resultados),
+        sum(r == "ok" for r in resultados.values()),
+        sum(r == "sin_novedad" for r in resultados.values()),
+        len(errores),
+        f" ({', '.join(errores)})" if errores else "",
+    )
+    log.info("Corrida finalizada%s.", " con errores" if errores else " OK")
+    return 1 if errores or almacen.errores_de_carga else 0
 
 
 if __name__ == "__main__":

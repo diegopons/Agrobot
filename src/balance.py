@@ -59,7 +59,10 @@ class EstadoBalance:
 
     @classmethod
     def from_dict(cls, d: dict) -> "EstadoBalance":
-        return cls(**d)
+        # El estado guardado puede traer datos que no son del balance (huella,
+        # fechas con imagen, serie): se toman solo los campos propios.
+        campos = cls.__dataclass_fields__
+        return cls(**{k: v for k, v in d.items() if k in campos})
 
     @classmethod
     def inicial(cls, au_real_inicial: float, prof_raiz_inicial: float) -> "EstadoBalance":

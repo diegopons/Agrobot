@@ -61,7 +61,10 @@ def _cargar_geojson(path: Path):
     """Lee un .geojson / .json con el polígono del lote (EPSG:4326)."""
     with open(path, "r", encoding="utf-8") as f:
         data = json.load(f)
+    return _geometria_de_geojson(data)
 
+
+def _geometria_de_geojson(data: dict):
     tipo = data.get("type")
     if tipo == "FeatureCollection":
         geoms = [shape(f["geometry"]) for f in data["features"] if f.get("geometry")]
@@ -107,6 +110,12 @@ def cargar_aoi(ruta: str | Path) -> dict:
         logger.info("AOI cargado con pyshp (fallback, sin atributos).")
 
     return _armar_resultado(geom)
+
+
+def aoi_desde_geojson(data: dict) -> dict:
+    """Como `cargar_aoi`, pero con el GeoJSON ya en memoria (el que guarda
+    Supabase para cada lote). Acepta geometría, Feature o FeatureCollection."""
+    return _armar_resultado(_geometria_de_geojson(data))
 
 
 def _armar_resultado(geom) -> dict:

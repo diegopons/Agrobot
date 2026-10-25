@@ -294,24 +294,165 @@ button.chico{display:inline-block;width:auto;padding:8px 12px;font-size:13.5px}
 .ix-leyenda{max-width:640px;margin-top:8px;font-size:12px;color:var(--tinta-suave)}
 .ix-leyenda .barra{height:12px;border:1px solid var(--linea)}
 .ix-leyenda .extremos{display:flex;justify-content:space-between;font-variant-numeric:tabular-nums}
+
+/* ---- portada ---- */
+.portada{max-width:1040px;margin:0 auto}
+.p-hero{display:grid;grid-template-columns:1.25fr 1fr;gap:40px;align-items:start;
+  padding:28px 0 36px;border-bottom:2px solid var(--tinta)}
+@media(max-width:860px){.p-hero{grid-template-columns:1fr;gap:28px}}
+.p-marca{font-size:14px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--agua);margin:0 0 10px}
+.p-hero h1{font-size:40px;line-height:1.08;letter-spacing:-.03em;font-weight:800;margin:0 0 16px}
+@media(max-width:560px){.p-hero h1{font-size:30px}}
+.p-bajada{font-size:17.5px;color:var(--tinta-suave);margin:0 0 18px;max-width:52ch}
+.p-puntos{margin:0;padding-left:20px;font-size:15px;line-height:1.8}
+.p-form{background:var(--papel);border:1px solid var(--linea);padding:24px}
+.p-form h2{margin-bottom:4px}
+.opc{font-weight:400;color:var(--tinta-suave)}
+.p-nota{font-size:12.5px;color:var(--tinta-suave);margin:12px 0 0}
+.p-seccion{padding:32px 0 8px}
+.p-seccion h2{font-size:22px;margin-bottom:16px}
+.p-tarjetas{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px}
+.p-tarjeta{background:var(--papel);border:1px solid var(--linea);border-top:3px solid var(--agua);padding:16px 18px}
+.p-tarjeta h3{margin:0 0 6px;font-size:16px}
+.p-tarjeta p{margin:0;font-size:14.5px;color:var(--tinta-suave);line-height:1.5}
+.p-pasos{margin:0;padding-left:22px;font-size:15.5px;line-height:1.7;max-width:70ch}
+.p-pasos li{margin-bottom:8px}
+.p-fuentes{margin:0;padding-left:20px;font-size:15px;line-height:1.7;max-width:80ch}
+.p-faq{background:var(--papel);border:1px solid var(--linea);padding:12px 16px;margin-bottom:8px;max-width:80ch}
+.p-faq summary{cursor:pointer;font-weight:600}
+.p-faq p{margin:8px 0 0;color:var(--tinta-suave);font-size:14.5px}
+.p-pie{margin:32px 0 0;padding-top:16px;border-top:1px solid var(--linea);font-size:13px;color:var(--tinta-suave)}
+.etiqueta{display:inline-block;font-size:12px;font-weight:600;padding:2px 8px;border-radius:10px}
+.etiqueta.pend{background:#FBF3E9;color:var(--deficit)}
+.etiqueta.ok{background:#EFF4EC;color:var(--optimo)}
 </style>
 </head>
 <body>
 <div class="envoltorio">
 
-  <!-- ======================= INGRESO ======================= -->
-  <div id="pantalla-login" class="login oculto">
-    <h1>Balance hídrico</h1>
-    <p class="subtitulo">Ingresá con tu correo. Te mandamos un enlace para entrar, sin contraseña.
-      Cada cuenta ve solo sus lotes.</p>
-    <form id="form-login">
-      <div class="campo">
-        <label for="f-email">Correo electrónico</label>
-        <input type="email" id="f-email" required autocomplete="email">
+  <!-- ======================= PORTADA E INGRESO ======================= -->
+  <div id="pantalla-login" class="portada oculto">
+    <header class="p-hero">
+      <div>
+        <p class="p-marca">Agrobot</p>
+        <h1>El agua de tus lotes, calculada todos los días</h1>
+        <p class="p-bajada">Balance hídrico diario con imágenes satelitales, la estación
+          meteorológica más cercana y la carta de suelos de tu zona. Te dice cuánta agua útil
+          tiene el cultivo, cuándo conviene regar y cuánto.</p>
+        <ul class="p-puntos">
+          <li>Sin instalar nada: lo dibujás en un mapa y se calcula solo.</li>
+          <li>Se actualiza cada mañana, desde la siembra.</li>
+          <li>Avisos y consultas por Telegram.</li>
+        </ul>
       </div>
-      <button class="principal" type="submit" style="margin-top:14px">Enviarme el enlace</button>
-    </form>
-    <div id="aviso-login" class="aviso oculto"></div>
+      <div class="p-form">
+        <h2 id="form-titulo">Pedir acceso</h2>
+        <p class="subtitulo">Te mandamos un enlace al correo para entrar, sin contraseña.
+          Si ya tenés cuenta, poné solo tu correo.</p>
+        <form id="form-login">
+          <div class="campo">
+            <label for="f-email">Correo electrónico</label>
+            <input type="email" id="f-email" required autocomplete="email">
+          </div>
+          <div id="campos-registro">
+            <div class="campo" style="margin-top:10px">
+              <label for="f-reg-nombre">Nombre <span class="opc">(la primera vez)</span></label>
+              <input type="text" id="f-reg-nombre" autocomplete="name" maxlength="80">
+            </div>
+            <div class="campo" style="margin-top:10px">
+              <label for="f-reg-org">Organización o actividad <span class="opc">(opcional)</span></label>
+              <input type="text" id="f-reg-org" maxlength="120" placeholder="Productor, asesor, cooperativa…">
+            </div>
+            <div class="campo" style="margin-top:10px">
+              <label for="f-reg-motivo">¿Para qué lo usarías? <span class="opc">(opcional)</span></label>
+              <input type="text" id="f-reg-motivo" maxlength="200" placeholder="Riego de maíz con pivote, 3 lotes…">
+            </div>
+          </div>
+          <button class="principal" type="submit" style="margin-top:14px">Enviarme el enlace</button>
+        </form>
+        <div id="aviso-login" class="aviso oculto"></div>
+        <p class="p-nota">Las cuentas nuevas se habilitan a mano: te avisamos cuando esté lista.</p>
+      </div>
+    </header>
+
+    <section class="p-seccion">
+      <h2>Qué hace</h2>
+      <div class="p-tarjetas">
+        <div class="p-tarjeta"><h3>Balance hídrico diario</h3>
+          <p>Agua útil del perfil día por día, con la profundidad de raíz y el consumo del cultivo
+          estimado desde el NDVI. Método FAO-56.</p></div>
+        <div class="p-tarjeta"><h3>Lámina de riego</h3>
+          <p>Cuánto regar para volver a capacidad de campo, y la lámina ajustada si se espera
+          lluvia en los próximos días.</p></div>
+        <div class="p-tarjeta"><h3>Suelo de tu lote</h3>
+          <p>En Córdoba, el perfil sale solo de la Carta de Suelos: agua útil a 1, 1,5 y 2 m,
+          capacidad de uso y limitantes. Si tenés calicata, manda la calicata.</p></div>
+        <div class="p-tarjeta"><h3>Índices espectrales</h3>
+          <p>NDVI, NDRE, EVI, SAVI y seis más, con mapas del lote de cada pasada despejada de
+          Sentinel-2.</p></div>
+        <div class="p-tarjeta"><h3>Registro de riegos</h3>
+          <p>Cargás lo que regaste y el balance lo incorpora, aunque lo cargues días después.</p></div>
+        <div class="p-tarjeta"><h3>Telegram</h3>
+          <p>Aviso cuando el lote cruza el umbral de riego, y un bot al que le preguntás cómo
+          están tus lotes.</p></div>
+      </div>
+    </section>
+
+    <section class="p-seccion">
+      <h2>Cómo funciona</h2>
+      <ol class="p-pasos">
+        <li><strong>Pedís acceso</strong> con tu correo. Cuando la cuenta está habilitada,
+          entrás con el enlace que te llega.</li>
+        <li><strong>Dibujás el lote</strong> en el mapa (o subís un KML o shapefile) y cargás la
+          fecha de siembra y el umbral de riego.</li>
+        <li><strong>En menos de una hora</strong> tenés la campaña calculada desde la siembra, y
+          desde ahí se actualiza cada mañana.</li>
+      </ol>
+    </section>
+
+    <section class="p-seccion">
+      <h2>De dónde salen los datos</h2>
+      <ul class="p-fuentes">
+        <li><strong>Vegetación</strong>: Sentinel-2 L2A, Copernicus Data Space Ecosystem (10 m,
+          cada 5 días, nubes enmascaradas píxel a píxel).</li>
+        <li><strong>Lluvia y evapotranspiración</strong>: estación del SIGA del INTA más cercana con
+          datos al día; Open-Meteo para completar y para el pronóstico.</li>
+        <li><strong>Suelo</strong>: Cartas de Suelos de Córdoba publicadas por IDECOR, con el agua útil
+          estimada por Faule et al. (2024), INTA EEA Manfredi.</li>
+      </ul>
+    </section>
+
+    <section class="p-seccion">
+      <h2>Preguntas frecuentes</h2>
+      <details class="p-faq"><summary>¿Tiene costo?</summary>
+        <p>No. Es un proyecto personal, sin fines comerciales.</p></details>
+      <details class="p-faq"><summary>¿Quién ve mis lotes?</summary>
+        <p>Solo vos. Cada cuenta accede únicamente a sus lotes, y eso lo controla la base de datos,
+        no la página.</p></details>
+      <details class="p-faq"><summary>¿Funciona fuera de Córdoba?</summary>
+        <p>Sí, el balance y los índices funcionan en cualquier lugar. El perfil de suelo automático
+        solo está para Córdoba; en otras provincias se usa un perfil general o la calicata que cargues.</p></details>
+      <details class="p-faq"><summary>¿Reemplaza a una recorrida o una calicata?</summary>
+        <p>No. Es una estimación de apoyo para decidir: conviene contrastarla con lo que se ve en el
+        lote y, si se puede, cargar una calicata de siembra.</p></details>
+    </section>
+
+    <footer class="p-pie">
+      Agrobot es un proyecto personal e independiente. Usa datos públicos de Copernicus, del INTA,
+      de IDECOR y de Open-Meteo, pero no es un servicio oficial de esas instituciones.
+    </footer>
+  </div>
+
+  <!-- ======================= CUENTA EN REVISIÓN ======================= -->
+  <div id="pantalla-pendiente" class="login oculto">
+    <h1>Tu pedido está en revisión</h1>
+    <p class="subtitulo">Ya tenés cuenta en Agrobot (<span id="pend-email"></span>). Falta que la
+      habiliten: te llega un correo cuando esté lista, y ahí podés cargar tus lotes.</p>
+    <div class="acciones" style="margin-top:18px">
+      <button id="btn-pend-actualizar" class="principal">Ya me avisaron: actualizar</button>
+      <button id="btn-pend-salir">Salir</button>
+    </div>
   </div>
 
   <div id="app" class="oculto">
@@ -333,6 +474,7 @@ button.chico{display:inline-block;width:auto;padding:8px 12px;font-size:13.5px}
     <button role="tab" aria-selected="false" data-seccion="indices">Índices</button>
     <button role="tab" aria-selected="false" data-seccion="correr">Parámetros</button>
     <button role="tab" aria-selected="false" data-seccion="cuenta">Cuenta</button>
+    <button role="tab" aria-selected="false" data-seccion="usuarios" id="tab-usuarios" class="oculto">Usuarios</button>
   </nav>
 
   <!-- ======================= ESTADO ======================= -->
@@ -719,6 +861,21 @@ button.chico{display:inline-block;width:auto;padding:8px 12px;font-size:13.5px}
       píxel a píxel (banda SCL). Solo cuentan las pasadas con al menos el 70 % del lote despejado.
       En los mapas, lo gris es nube o sombra detectada.
     </p>
+  </section>
+
+  <!-- ======================= USUARIOS (solo administradores) ======================= -->
+  <section class="seccion" id="s-usuarios">
+    <div class="panel">
+      <h2>Usuarios</h2>
+      <p class="subtitulo" id="u-resumen">Pedidos de acceso y cuentas habilitadas</p>
+      <div style="overflow-x:auto"><table id="u-tabla"></table></div>
+      <div id="u-aviso" class="aviso oculto"></div>
+      <p class="pista" style="margin-top:12px;font-size:12.5px;color:var(--tinta-suave)">
+        Al aprobar una cuenta, el usuario recibe un correo avisándole que ya puede entrar (sale en
+        la corrida siguiente, dentro de la hora). Quitar el acceso no borra sus lotes: dejan de
+        calcularse y el usuario ya no puede modificarlos.
+      </p>
+    </div>
   </section>
 
   <!-- ======================= CUENTA ======================= -->
@@ -1692,6 +1849,7 @@ const CLAVE_LOTE = 'bh_lote_elegido';
 
 function mostrarPantalla(cual){
   document.getElementById('pantalla-login').classList.toggle('oculto', cual !== 'login');
+  document.getElementById('pantalla-pendiente').classList.toggle('oculto', cual !== 'pendiente');
   document.getElementById('app').classList.toggle('oculto', cual !== 'app');
 }
 
@@ -1707,8 +1865,13 @@ document.getElementById('form-login').addEventListener('submit', async ev => {
   if(!email || !sb) return;
   const btn = ev.target.querySelector('button');
   btn.disabled = true;
+  // Los datos del pedido viajan como metadatos del usuario: el trigger de la
+  // base los copia al perfil la primera vez. Si la cuenta ya existe, se ignoran.
+  const datos = {};
+  [['nombre', 'f-reg-nombre'], ['organizacion', 'f-reg-org'], ['motivo', 'f-reg-motivo']]
+    .forEach(([k, id]) => { const v = document.getElementById(id).value.trim(); if(v) datos[k] = v; });
   const {error} = await sb.auth.signInWithOtp({
-    email, options: {emailRedirectTo: location.origin + location.pathname}
+    email, options: {emailRedirectTo: location.origin + location.pathname, data: datos}
   });
   btn.disabled = false;
   if(error) avisoLogin('No se pudo enviar el enlace: ' + error.message, 'error');
@@ -1727,9 +1890,70 @@ document.getElementById('btn-salir2').addEventListener('click', salir);
 async function entrar(user){
   USUARIO = user;
   document.getElementById('usuario-email').textContent = user.email || '';
+  const {data: acceso} = await sb.from('perfiles').select('aprobado, es_admin').maybeSingle();
+  if(!acceso || !acceso.aprobado){
+    document.getElementById('pend-email').textContent = user.email || '';
+    mostrarPantalla('pendiente');
+    return;
+  }
   mostrarPantalla('app');
+  if(acceso.es_admin){
+    document.getElementById('tab-usuarios').classList.remove('oculto');
+    cargarUsuarios();
+  }
   await Promise.all([cargarPerfil(), cargarLotes()]);
+  // El correo de aviso de pedidos trae este enlace directo
+  if(acceso.es_admin && location.hash === '#usuarios'){
+    document.getElementById('tab-usuarios').click();
+  }
 }
+
+document.getElementById('btn-pend-actualizar').addEventListener('click', () => location.reload());
+document.getElementById('btn-pend-salir').addEventListener('click', () => salir());
+
+// ===================== usuarios (administradores) =====================
+async function cargarUsuarios(){
+  const {data, error} = await sb.rpc('listar_usuarios');
+  const tabla = document.getElementById('u-tabla');
+  if(error){ tabla.innerHTML = ''; avisoUsuarios('No se pudo leer la lista: ' + error.message, 'error'); return; }
+  const pend = data.filter(u => !u.aprobado).length;
+  document.getElementById('u-resumen').textContent =
+    `${data.length} cuenta${data.length === 1 ? '' : 's'} · ${pend} pedido${pend === 1 ? '' : 's'} pendiente${pend === 1 ? '' : 's'}`;
+  const tab = document.getElementById('tab-usuarios');
+  tab.textContent = pend ? `Usuarios (${pend})` : 'Usuarios';
+  tabla.innerHTML = '<thead><tr><th>Usuario</th><th style="text-align:left">Organización / uso</th>' +
+    '<th>Pedido</th><th>Lotes</th><th>Estado</th><th></th></tr></thead><tbody>' +
+    data.map(u => '<tr>' +
+      `<td><strong>${esc(u.nombre || '—')}</strong><br><span style="color:var(--tinta-suave)">${esc(u.email)}</span></td>` +
+      `<td style="text-align:left">${esc(u.organizacion || '')}${u.organizacion && u.motivo ? '<br>' : ''}` +
+      `<span style="color:var(--tinta-suave)">${esc(u.motivo || '')}</span></td>` +
+      `<td>${fechaCorta(new Date(u.creado))}</td><td>${u.lotes}</td>` +
+      `<td>${u.aprobado ? '<span class="etiqueta ok">habilitada</span>' : '<span class="etiqueta pend">pendiente</span>'}` +
+      `${u.es_admin ? '<br><span style="font-size:12px;color:var(--tinta-suave)">administrador</span>' : ''}</td>` +
+      `<td>${u.es_admin ? '' : u.aprobado
+          ? `<button class="chico" data-aprobar="${u.id}" data-valor="false">Quitar acceso</button>`
+          : `<button class="chico principal" data-aprobar="${u.id}" data-valor="true">Aprobar</button>`}</td>` +
+    '</tr>').join('') + '</tbody>';
+}
+
+function avisoUsuarios(texto, clase){
+  const el = document.getElementById('u-aviso');
+  el.className = 'aviso' + (clase ? ' ' + clase : '');
+  el.innerHTML = texto;
+}
+
+document.getElementById('u-tabla').addEventListener('click', async ev => {
+  const id = ev.target.dataset && ev.target.dataset.aprobar;
+  if(!id) return;
+  const aprobar = ev.target.dataset.valor === 'true';
+  if(!aprobar && !confirm('¿Quitarle el acceso? Sus lotes quedan guardados pero dejan de calcularse.')) return;
+  ev.target.disabled = true;
+  const {error} = await sb.rpc('aprobar_usuario', {p_id: id, p_aprobado: aprobar});
+  if(error){ avisoUsuarios('No se pudo: ' + error.message, 'error'); ev.target.disabled = false; return; }
+  avisoUsuarios(aprobar ? 'Cuenta habilitada. El usuario recibe el aviso por correo dentro de la hora.'
+                        : 'Acceso quitado.', 'ok');
+  cargarUsuarios();
+});
 
 (function iniciar(){
   if(!sb){

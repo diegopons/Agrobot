@@ -62,6 +62,31 @@ def _enviar_correo(destinos: list[str], asunto: str, cuerpo: str) -> bool:
         return False
 
 
+def avisar_aprobaciones(almacen) -> int:
+    """Correo (y Telegram, si lo vinculó) a quien un administrador acaba de habilitar."""
+    aprobados = almacen.aprobados_sin_avisar()
+    if not aprobados:
+        return 0
+    url = os.environ.get("AGROBOT_URL_TABLERO", URL_TABLERO).rstrip("/") + "/"
+    token = os.environ.get("TELEGRAM_BOT_TOKEN")
+    avisados = []
+    for p in aprobados:
+        texto = (f"Hola{' ' + p['nombre'] if p.get('nombre') else ''}:\n\n"
+                 "Tu cuenta de Agrobot ya está habilitada. Entrá con tu correo, dibujá tu lote y "
+                 "cargá la fecha de siembra: en menos de una hora tenés el balance calculado.\n\n"
+                 f"{url}\n")
+        salio = bool(p.get("email")) and _enviar_correo(
+            [p["email"]], "Tu cuenta de Agrobot está habilitada", texto)
+        if token and p.get("telegram_chat_id") and enviar_telegram(token, p["telegram_chat_id"], escape(texto)):
+            salio = True
+        if salio:
+            avisados.append(p["id"])
+    if avisados:
+        almacen.marcar_aprobacion_avisada(avisados)
+        logger.info("Aviso de cuenta habilitada enviado a %d usuario(s).", len(avisados))
+    return len(avisados)
+
+
 def avisar_pedidos_de_acceso(almacen) -> int:
     """Avisa los pedidos nuevos. Devuelve cuántos quedaron avisados."""
     pedidos = almacen.pedidos_sin_avisar()

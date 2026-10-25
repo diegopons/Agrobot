@@ -603,6 +603,13 @@ def test_aviso_de_pedidos_de_acceso(entorno, supabase, monkeypatch):
     main_mod.main(entorno["cfg"])
     assert enviados == []
 
+    # el administrador la aprueba desde el tablero (aprobar_usuario): le llega el aviso a ella
+    supabase.update("perfiles", {"id": "eq.u-nuevo"}, {"aprobado": True, "aviso_aprobacion": False})
+    main_mod.main(entorno["cfg"])
+    destino, cuerpo = enviados[1]
+    assert destino == "carla@x.com" and "habilitada" in cuerpo
+    assert next(p for p in supabase.t["perfiles"] if p["id"] == "u-nuevo")["aviso_aprobacion"] is True
+
 
 def test_el_suelo_del_config_no_se_hereda(entorno):
     cfg = yaml.safe_load(open(entorno["cfg"], encoding="utf-8"))

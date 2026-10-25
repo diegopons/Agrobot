@@ -40,6 +40,11 @@ alter table public.perfiles add column if not exists aprobado boolean not null d
 alter table public.perfiles add column if not exists es_admin boolean not null default false;
 -- Ya se avisó a los administradores de este pedido (lo marca la corrida)
 alter table public.perfiles add column if not exists aviso_admin boolean not null default false;
+-- Ya se le avisó al usuario que su cuenta quedó habilitada. Las filas que ya
+-- existían al agregar la columna quedan en true (no hay nada que avisarles);
+-- las nuevas arrancan en false y aprobar_usuario() la vuelve a poner en false.
+alter table public.perfiles add column if not exists aviso_aprobacion boolean not null default true;
+alter table public.perfiles alter column aviso_aprobacion set default false;
 
 create or replace function public.crear_perfil()
 returns trigger
@@ -464,7 +469,10 @@ begin
   if p_id = auth.uid() and not p_aprobado then
     raise exception 'No podés quitarte el acceso a vos mismo';
   end if;
-  update public.perfiles set aprobado = p_aprobado, aviso_admin = true where id = p_id;
+  -- Al aprobar queda pendiente el correo de "tu cuenta está habilitada"
+  update public.perfiles
+     set aprobado = p_aprobado, aviso_admin = true, aviso_aprobacion = not p_aprobado
+   where id = p_id;
 end
 $$;
 

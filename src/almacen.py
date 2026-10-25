@@ -254,6 +254,12 @@ class AlmacenLocal:
     def marcar_avisados(self, ids: list[str]) -> None:
         pass
 
+    def aprobados_sin_avisar(self) -> list[dict]:
+        return []
+
+    def marcar_aprobacion_avisada(self, ids: list[str]) -> None:
+        pass
+
     @property
     def _ruta_carta(self) -> Path:
         return Path(self._rutas["estado_json"]).with_name("suelo_carta.json")
@@ -580,6 +586,15 @@ class AlmacenSupabase:
     def marcar_avisados(self, ids: list[str]) -> None:
         if ids:
             self.db.update("perfiles", {"id": f"in.({','.join(ids)})"}, {"aviso_admin": True})
+
+    def aprobados_sin_avisar(self) -> list[dict]:
+        return self.db.select("perfiles", {
+            "select": "id,email,nombre,telegram_chat_id",
+            "aprobado": "eq.true", "aviso_aprobacion": "eq.false"})
+
+    def marcar_aprobacion_avisada(self, ids: list[str]) -> None:
+        if ids:
+            self.db.update("perfiles", {"id": f"in.({','.join(ids)})"}, {"aviso_aprobacion": True})
 
     def suelo_carta(self, lote: Lote) -> Optional[dict]:
         filas = self.db.select("estado_lote", {"select": "suelo_carta", **self._filtro(lote)})

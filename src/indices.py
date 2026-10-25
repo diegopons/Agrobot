@@ -56,7 +56,7 @@ INDICES = {
     "nbri": ("NBRI", "d(B08 - B12, B08 + B12)", (-0.2, 0.8), False),
     # Borde rojo: B05 (705 nm) contra el NIR angosto B8A (865 nm), las dos de
     # 20 m. Sigue respondiendo a la clorofila cuando el NDVI ya se saturó.
-    "ndre": ("NDRE", "d(B8A - B05, B8A + B05)", (0.0, 0.6), False),
+    "ndre": ("NDRE", "d(B8A - B05, B8A + B05)", (0.0, 0.8), False),
 }
 
 # Paleta del script de GEE: azul para lo más bajo, del ocre al verde oscuro
@@ -195,7 +195,7 @@ def evalscript_mapa(clave: str, scl_validas=(4, 5)) -> str:
     """PNG con el índice coloreado; nubes y sombras en gris, fuera del lote transparente."""
     validas = _condicion_scl(scl_validas)
     if clave == "rgb":
-        cuerpo = "return [Math.min(1, 2.5 * s.B04), Math.min(1, 2.5 * s.B03), Math.min(1, 2.5 * s.B02), 1];"
+        cuerpo = "return [Math.min(1, 3.5 * s.B04), Math.min(1, 3.5 * s.B03), Math.min(1, 3.5 * s.B02), 1];"
     else:
         _, expr, (lo, hi), invertir = INDICES[clave]
         paleta = list(reversed(PALETA)) if invertir else PALETA

@@ -82,6 +82,9 @@ jobs:
           CDSAPI_URL: ${{ secrets.CDSAPI_URL }}
           CDSAPI_KEY: ${{ secrets.CDSAPI_KEY }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          # Aviso de pedidos de acceso por correo (Gmail + contraseña de aplicación)
+          SMTP_USUARIO: ${{ secrets.SMTP_USUARIO }}
+          SMTP_CLAVE: ${{ secrets.SMTP_CLAVE }}
           BH_SOLO_PENDIENTES: ${{ github.event.schedule == '30 * * * *' }}
           BH_LOTE_ID: ${{ inputs.lote_id }}
           BH_FECHA_FIN: ${{ inputs.fecha_fin }}

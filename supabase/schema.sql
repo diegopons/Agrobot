@@ -31,6 +31,16 @@ create table if not exists public.perfiles (
   creado              timestamptz not null default now()
 );
 
+-- Acceso con aprobación: cualquiera puede registrarse, pero solo carga lotes
+-- cuando un administrador lo habilita desde el tablero (pestaña Usuarios).
+alter table public.perfiles add column if not exists email text;
+alter table public.perfiles add column if not exists organizacion text;
+alter table public.perfiles add column if not exists motivo text;
+alter table public.perfiles add column if not exists aprobado boolean not null default false;
+alter table public.perfiles add column if not exists es_admin boolean not null default false;
+-- Ya se avisó a los administradores de este pedido (lo marca la corrida)
+alter table public.perfiles add column if not exists aviso_admin boolean not null default false;
+
 create or replace function public.crear_perfil()
 returns trigger
 language plpgsql
@@ -38,8 +48,13 @@ security definer
 set search_path = public
 as $$
 begin
-  insert into public.perfiles (id, nombre)
-  values (new.id, coalesce(new.raw_user_meta_data->>'nombre', split_part(new.email, '@', 1)))
+  -- Los datos del formulario de "Pedir acceso" llegan en raw_user_meta_data
+  insert into public.perfiles (id, nombre, email, organizacion, motivo)
+  values (new.id,
+          coalesce(nullif(trim(new.raw_user_meta_data->>'nombre'), ''), split_part(new.email, '@', 1)),
+          new.email,
+          nullif(trim(new.raw_user_meta_data->>'organizacion'), ''),
+          nullif(trim(new.raw_user_meta_data->>'motivo'), ''))
   on conflict (id) do nothing;
   return new;
 end
@@ -51,9 +66,44 @@ create trigger al_crear_usuario
   for each row execute function public.crear_perfil();
 
 -- Usuarios que ya existían antes de correr este script
-insert into public.perfiles (id, nombre)
-select u.id, split_part(u.email, '@', 1) from auth.users u
+insert into public.perfiles (id, nombre, email)
+select u.id, split_part(u.email, '@', 1), u.email from auth.users u
 on conflict (id) do nothing;
+update public.perfiles p set email = u.email
+  from auth.users u where u.id = p.id and p.email is null;
+
+-- Si todavía no hay ningún administrador (el esquema se corre por primera vez
+-- con esta función), los usuarios que ya estaban quedan aprobados, y el más
+-- antiguo como administrador: son los que armaron el proyecto.
+do $$
+begin
+  if not exists (select 1 from public.perfiles where es_admin) then
+    update public.perfiles set aprobado = true, aviso_admin = true;
+    update public.perfiles set es_admin = true
+     where id = (select id from public.perfiles order by creado limit 1);
+  end if;
+end
+$$;
+
+create or replace function public.usuario_aprobado()
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select coalesce((select aprobado from public.perfiles where id = auth.uid()), false);
+$$;
+
+create or replace function public.es_admin()
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select coalesce((select es_admin from public.perfiles where id = auth.uid()), false);
+$$;
 
 -- -----------------------------------------------------------------------------
 -- Lotes: la definición que carga el usuario desde el tablero
@@ -260,11 +310,13 @@ create policy perfil_propio_editar on public.perfiles
 -- Lotes: cada uno administra los suyos, y no puede pasarle un lote a otro
 grant select, insert, update, delete on public.lotes to authenticated;
 
+-- Ver y borrar sus lotes, siempre; crearlos o modificarlos, solo con la
+-- cuenta aprobada.
 drop policy if exists lotes_propios on public.lotes;
 create policy lotes_propios on public.lotes
   for all to authenticated
   using (usuario_id = auth.uid())
-  with check (usuario_id = auth.uid());
+  with check (usuario_id = auth.uid() and public.usuario_aprobado());
 
 -- Riegos: cada uno los carga, corrige y borra en sus propios lotes
 alter table public.riegos enable row level security;
@@ -275,7 +327,8 @@ drop policy if exists riegos_de_lotes_propios on public.riegos;
 create policy riegos_de_lotes_propios on public.riegos
   for all to authenticated
   using (exists (select 1 from public.lotes l where l.id = lote_id and l.usuario_id = auth.uid()))
-  with check (exists (select 1 from public.lotes l where l.id = lote_id and l.usuario_id = auth.uid()));
+  with check (public.usuario_aprobado() and
+              exists (select 1 from public.lotes l where l.id = lote_id and l.usuario_id = auth.uid()));
 
 -- Resultados: solo lectura, y solo de lotes propios
 alter table public.indices_lote enable row level security;
@@ -372,6 +425,53 @@ begin
   return coalesce(v_nombre, '');
 end
 $$;
+
+-- -----------------------------------------------------------------------------
+-- Administración de usuarios desde el tablero (pestaña Usuarios)
+-- -----------------------------------------------------------------------------
+create or replace function public.listar_usuarios()
+returns table (id uuid, email text, nombre text, organizacion text, motivo text,
+               aprobado boolean, es_admin boolean, creado timestamptz,
+               lotes bigint, telegram boolean)
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+begin
+  if not public.es_admin() then
+    raise exception 'Solo los administradores pueden ver los usuarios';
+  end if;
+  return query
+    select p.id, p.email, p.nombre, p.organizacion, p.motivo, p.aprobado, p.es_admin,
+           p.creado, (select count(*) from public.lotes l where l.usuario_id = p.id),
+           p.telegram_chat_id is not null
+      from public.perfiles p
+     order by p.aprobado, p.creado desc;
+end
+$$;
+
+create or replace function public.aprobar_usuario(p_id uuid, p_aprobado boolean)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if not public.es_admin() then
+    raise exception 'Solo los administradores pueden aprobar usuarios';
+  end if;
+  if p_id = auth.uid() and not p_aprobado then
+    raise exception 'No podés quitarte el acceso a vos mismo';
+  end if;
+  update public.perfiles set aprobado = p_aprobado, aviso_admin = true where id = p_id;
+end
+$$;
+
+revoke all on function public.listar_usuarios()              from public, anon;
+revoke all on function public.aprobar_usuario(uuid, boolean) from public, anon;
+grant execute on function public.listar_usuarios()              to authenticated;
+grant execute on function public.aprobar_usuario(uuid, boolean) to authenticated;
 
 -- -----------------------------------------------------------------------------
 -- Consulta del bot: todo lo que necesita para responder, en una llamada

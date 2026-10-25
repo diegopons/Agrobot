@@ -72,7 +72,8 @@ class BaseFalsa:
     }
     DEFAULTS = {"estado_lote": {"serie": 1, "fechas_con_imagen": []}}
     OPERADORES = {"eq": lambda a, b: a == b, "lt": lambda a, b: a < b,
-                  "lte": lambda a, b: a <= b, "gte": lambda a, b: a >= b}
+                  "lte": lambda a, b: a <= b, "gte": lambda a, b: a >= b,
+                  "in": lambda a, b: a in b.strip("()").split(",")}
 
     def __init__(self):
         self.t = {k: [] for k in self.CLAVES}
@@ -107,7 +108,8 @@ class BaseFalsa:
             for f in filas:
                 p = perfiles.get(f["usuario_id"], {})
                 f["perfil"] = {"nombre": p.get("nombre"),
-                               "telegram_chat_id": p.get("telegram_chat_id")}
+                               "telegram_chat_id": p.get("telegram_chat_id"),
+                               "aprobado": p.get("aprobado", True)}
                 e = estados.get(f["id"])
                 f["estado"] = e and {k: e.get(k) for k in
                                      ("ultima_fecha_procesada", "ultima_corrida")}
@@ -553,6 +555,53 @@ def test_interpretar_estadisticas_de_copernicus():
     assert [f["fecha"] for f in filas] == ["2026-10-10"]
     assert filas[0]["cobertura_pct"] == 95.0
     assert filas[0]["valores"]["ndre"] == {"mediana": 0.5, "p10": 0.3, "p90": 0.7, "media": 0.5}
+
+
+def test_no_se_calculan_lotes_de_cuentas_sin_aprobar(entorno, supabase):
+    supabase.update("perfiles", {"id": "eq.u-beto"}, {"aprobado": False})
+    main_mod.main(entorno["cfg"])
+    assert _serie(supabase, "l1")
+    assert not _serie(supabase, "l3")          # de beto, que no está aprobado
+
+
+def test_aviso_de_pedidos_de_acceso(entorno, supabase, monkeypatch):
+    import src.avisos_admin as av
+    supabase.t["perfiles"] += [
+        {"id": "u-admin", "nombre": "Diego", "email": "admin@x.com", "es_admin": True,
+         "aprobado": True, "aviso_admin": True, "telegram_chat_id": None},
+        {"id": "u-nuevo", "nombre": "Carla", "email": "carla@x.com", "organizacion": "Coop. X",
+         "motivo": "riego de maíz", "aprobado": False, "aviso_admin": False, "creado": "2026-10-25"},
+    ]
+    for p in supabase.t["perfiles"]:
+        p.setdefault("aprobado", True); p.setdefault("aviso_admin", True); p.setdefault("es_admin", False)
+
+    # sin correo ni Telegram de administrador: no se marca, se reintenta
+    main_mod.main(entorno["cfg"])
+    assert next(p for p in supabase.t["perfiles"] if p["id"] == "u-nuevo")["aviso_admin"] is False
+
+    enviados = []
+
+    class SMTPFalso:
+        def __init__(self, host, puerto, timeout=None): enviados.append((host, puerto))
+        def __enter__(self): return self
+        def __exit__(self, *a): return False
+        def login(self, u, c): assert c == "abcdefghijklmnop"
+        def send_message(self, m): enviados.append((m["To"], m.get_content()))
+    monkeypatch.setattr(av.smtplib, "SMTP_SSL", SMTPFalso)
+    monkeypatch.setenv("SMTP_USUARIO", "agrobot@gmail.com")
+    monkeypatch.setenv("SMTP_CLAVE", "abcd efgh ijkl mnop")
+    main_mod.main(entorno["cfg"])
+
+    assert enviados[0] == ("smtp.gmail.com", 465)
+    destino, cuerpo = enviados[1]
+    assert destino == "admin@x.com"
+    assert "Carla <carla@x.com>" in cuerpo and "riego de maíz" in cuerpo and "#usuarios" in cuerpo
+    assert next(p for p in supabase.t["perfiles"] if p["id"] == "u-nuevo")["aviso_admin"] is True
+
+    # no se repite
+    enviados.clear()
+    main_mod.main(entorno["cfg"])
+    assert enviados == []
 
 
 def test_el_suelo_del_config_no_se_hereda(entorno):

@@ -6,7 +6,7 @@
 //
 // NUNCA poner acá la clave service_role: esa saltea todas las políticas.
 window.AGROBOT = {
-  supabaseUrl: "",          // https://xxxxxxxx.supabase.co
-  supabaseAnonKey: "",      // eyJhbGciOi... (anon public)
+  supabaseUrl: "https://iulgwrolimepdnhfgwqe.supabase.co",
+  supabaseAnonKey: "sb_publishable_-TRxTV20C9hYihP4ipFtzw_YWtUqk-3",   // publishable
   botTelegram: "",          // usuario del bot, sin @, para el enlace de vinculación
 };

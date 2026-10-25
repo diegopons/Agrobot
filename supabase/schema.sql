@@ -207,6 +207,20 @@ create table if not exists public.balance_diario (
 alter table public.balance_diario add column if not exists riego_efectivo_mm double precision;
 
 -- -----------------------------------------------------------------------------
+-- Índices espectrales (Sentinel-2): una fila por pasada con el lote despejado
+-- -----------------------------------------------------------------------------
+-- valores = {"ndvi": {"mediana", "p10", "p90", "media"}, "evi": {...}, ...}
+create table if not exists public.indices_lote (
+  lote_id        uuid not null references public.lotes(id) on delete cascade,
+  fecha          date not null,
+  cobertura_pct  double precision,
+  valores        jsonb not null,
+  primary key (lote_id, fecha)
+);
+-- Hasta qué día se calcularon, para qué polígono, y la fecha de los mapas
+alter table public.estado_lote add column if not exists indices_meta jsonb;
+
+-- -----------------------------------------------------------------------------
 -- Resumen para el bot y el tablero: lo que antes era docs/estado_actual.json
 -- -----------------------------------------------------------------------------
 create table if not exists public.resumen_lote (
@@ -264,9 +278,17 @@ create policy riegos_de_lotes_propios on public.riegos
   with check (exists (select 1 from public.lotes l where l.id = lote_id and l.usuario_id = auth.uid()));
 
 -- Resultados: solo lectura, y solo de lotes propios
+alter table public.indices_lote enable row level security;
+revoke all on public.indices_lote from anon;
 revoke insert, update, delete on public.estado_lote, public.balance_diario,
-                                  public.resumen_lote from authenticated;
-grant select on public.estado_lote, public.balance_diario, public.resumen_lote to authenticated;
+                                  public.resumen_lote, public.indices_lote from authenticated;
+grant select on public.estado_lote, public.balance_diario, public.resumen_lote,
+                public.indices_lote to authenticated;
+
+drop policy if exists indices_de_lotes_propios on public.indices_lote;
+create policy indices_de_lotes_propios on public.indices_lote
+  for select to authenticated
+  using (exists (select 1 from public.lotes l where l.id = lote_id and l.usuario_id = auth.uid()));
 
 drop policy if exists estado_de_lotes_propios on public.estado_lote;
 create policy estado_de_lotes_propios on public.estado_lote
@@ -373,6 +395,11 @@ as $$
                'ultima_fecha_procesada', e.ultima_fecha_procesada,
                'ultimo_error', e.ultimo_error,
                'resumen', r.resumen,
+               'indices_espectrales', (
+                 select jsonb_build_object('fecha', i.fecha, 'cobertura_pct', i.cobertura_pct,
+                                           'valores', i.valores)
+                   from public.indices_lote i where i.lote_id = l.id
+                  order by i.fecha desc limit 1),
                'riegos_recientes', coalesce((
                  select jsonb_agg(jsonb_build_object('fecha', rg.fecha, 'mm', rg.mm, 'nota', rg.nota)
                                   order by rg.fecha desc)

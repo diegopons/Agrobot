@@ -43,6 +43,7 @@ from src.clima_openmeteo import descargar_pronostico
 from src import pronostico as mod_pronostico
 from src import clima as mod_clima
 from src import suelo_carta as mod_suelo_carta
+from src import indices as mod_indices
 from src import publicar_estado as mod_estado_json
 from src.config import cargar_config
 from src.estado import huella_corrida
@@ -208,6 +209,65 @@ def resolver_suelo(lote: Lote, almacen, aoi_info: dict) -> dict:
                 "descripcion": mod_suelo_carta.describir(carta)}
     log.info("Sin perfil de la Carta de Suelos: %s", carta.get("motivo"))
     return {"origen": "perfil por defecto", "motivo": carta.get("motivo")}
+
+
+def actualizar_indices(lote: Lote, almacen, cdse: tuple[str, str]) -> None:
+    """Serie y mapas de índices espectrales del lote (ver src/indices.py).
+
+    Va aparte del balance: avanza con su propio "hasta", y un fallo acá no
+    toca el estado ni la serie del balance.
+    """
+    cfg = lote.cfg
+    cfg_ix = cfg.get("indices", {})
+    if not cfg_ix.get("habilitado", True):
+        return
+    aoi_info = lote.aoi()
+    huella = mod_suelo_carta.huella_geometria(aoi_info["geojson"])
+    siembra = str(cfg["campana"]["fecha_siembra"])
+
+    meta = almacen.indices_meta(lote) or {}
+    # Otro polígono u otra campaña: lo calculado describe otra cosa
+    if meta and (meta.get("huella_geometria") != huella or meta.get("desde") != siembra):
+        log.info("Índices: cambió el lote o la siembra; se recalculan desde la siembra.")
+        almacen.borrar_indices(lote)
+        meta = {}
+    meta.update({"huella_geometria": huella, "desde": siembra})
+
+    desde = pd.to_datetime(meta["hasta"]) + timedelta(days=1) if meta.get("hasta") \
+        else pd.to_datetime(siembra)
+    hasta = pd.to_datetime(date.today()) - timedelta(days=int(cfg["rezago_dias"].get("ndvi", 2)))
+    if desde > hasta:
+        return
+    d, h = desde.strftime("%Y-%m-%d"), hasta.strftime("%Y-%m-%d")
+
+    scl = tuple(cfg["cdse"].get("scl_validas", (4, 5)))
+    filas = mod_indices.serie(
+        *cdse, aoi_info["geojson"], d, h,
+        resolucion_m=cfg["cdse"]["resolucion_m"],
+        max_cloud_coverage=cfg["cdse"]["max_cloud_coverage"],
+        min_cobertura_pct=cfg["cdse"].get("min_pixeles_validos_pct", 70.0),
+        scl_validas=scl,
+    )
+    almacen.guardar_indices(lote, filas)
+    meta["hasta"] = h
+    log.info("Índices: %d fecha(s) despejadas entre %s y %s.", len(filas), d, h)
+
+    # Mapas de la última fecha despejada, solo si es nueva
+    if filas and filas[-1]["fecha"] > meta.get("fecha_mapa", ""):
+        ultima = filas[-1]
+        subidos = []
+        for clave in [*mod_indices.INDICES, "rgb"]:
+            png = mod_indices.mapa(*cdse, aoi_info["geojson"], aoi_info["bbox"], ultima["fecha"],
+                                   clave, lado=int(cfg_ix.get("lado_px", 512)), scl_validas=scl)
+            if png:
+                almacen.publicar_mapa_indice(lote, clave, png)
+                subidos.append(clave)
+        if subidos:
+            meta.update({"fecha_mapa": ultima["fecha"], "cobertura_mapa": ultima["cobertura_pct"],
+                         "mapas": subidos})
+            log.info("Índices: %d mapas del %s publicados.", len(subidos), ultima["fecha"])
+    meta["leyendas"] = mod_indices.leyendas()
+    almacen.guardar_indices_meta(lote, meta)
 
 
 def correr_lote(lote: Lote, almacen, cdse: tuple[str, str], opciones: Opciones) -> str:
@@ -756,6 +816,13 @@ def main(config_path: str = "config.yaml") -> int:
                 almacen.registrar_corrida(lote, error=str(e) or type(e).__name__)
             except Exception as e2:  # noqa: BLE001
                 log.warning("No se pudo registrar el error del lote: %s", e2)
+
+        # Índices espectrales: aparte, para que un fallo no toque el balance
+        try:
+            actualizar_indices(lote, almacen, cdse)
+        except Exception as e:  # noqa: BLE001
+            log.warning("Lote %s: no se pudieron actualizar los índices espectrales: %s",
+                        lote.etiqueta, e)
 
     errores = [n for n, r in resultados.items() if r == "error"]
     log.info(

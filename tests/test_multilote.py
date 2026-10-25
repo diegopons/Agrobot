@@ -68,7 +68,7 @@ class BaseFalsa:
     CLAVES = {
         "lotes": ("id",), "perfiles": ("id",), "estado_lote": ("lote_id",),
         "balance_diario": ("lote_id", "serie", "fecha"), "resumen_lote": ("lote_id",),
-        "riegos": ("lote_id", "fecha"),
+        "riegos": ("lote_id", "fecha"), "indices_lote": ("lote_id", "fecha"),
     }
     DEFAULTS = {"estado_lote": {"serie": 1, "fechas_con_imagen": []}}
     OPERADORES = {"eq": lambda a, b: a == b, "lt": lambda a, b: a < b,
@@ -208,7 +208,26 @@ def entorno(tmp_path, monkeypatch):
                 "perfil": main_mod.mod_suelo_carta.perfil_desde_au(160, 231, carta["au_2m"])}
     monkeypatch.setattr(main_mod.mod_suelo_carta, "consultar", consultar_falso)
 
-    return {"cfg": str(ruta_cfg), "enviados": enviados, "tmp": tmp_path, "carta": carta}
+    # Índices espectrales simulados: una pasada despejada cada 5 días
+    indices = {"series": [], "mapas": [], "falla": False}
+
+    def serie_falsa(cid, csec, geojson, desde, hasta, **kw):
+        indices["series"].append((desde, hasta))
+        if indices["falla"]:
+            raise RuntimeError("Statistical API caída")
+        return [{"fecha": str(f.date()), "cobertura_pct": 95.0,
+                 "valores": {k: {"mediana": 0.5, "p10": 0.4, "p90": 0.6, "media": 0.5}
+                             for k in main_mod.mod_indices.INDICES}}
+                for f in pd.date_range(desde, hasta) if f.day % 5 == 0]
+
+    def mapa_falso(cid, csec, geojson, bbox, fecha, clave, **kw):
+        indices["mapas"].append((fecha, clave))
+        return b"PNG-" + clave.encode()
+    monkeypatch.setattr(main_mod.mod_indices, "serie", serie_falsa)
+    monkeypatch.setattr(main_mod.mod_indices, "mapa", mapa_falso)
+
+    return {"cfg": str(ruta_cfg), "enviados": enviados, "tmp": tmp_path, "carta": carta,
+            "indices": indices}
 
 
 @pytest.fixture
@@ -277,7 +296,7 @@ def test_corre_todos_los_lotes_de_todos_los_usuarios(entorno, supabase):
     assert resumenes["l1"]["fecha_del_dato"] == hasta
 
     # El mosaico va a la carpeta del dueño
-    assert set(supabase.archivos) == {
+    assert {a for a in supabase.archivos if "/indices/" not in a} == {
         "mosaicos/u-ana/l1.png", "mosaicos/u-ana/l2.png", "mosaicos/u-beto/l3.png"}
 
     # Cada aviso al chat del dueño; "Sur" tiene los avisos apagados
@@ -475,6 +494,65 @@ def test_si_idecor_se_cae_usa_el_perfil_por_defecto_y_reintenta(entorno, supabas
     main_mod.main(entorno["cfg"])
     assert _estado(supabase, "l1")["suelo_carta"]
     assert _estado(supabase, "l1")["serie"] == 2
+
+
+def test_indices_espectrales_por_lote(entorno, supabase):
+    main_mod.main(entorno["cfg"])
+    ix = entorno["indices"]
+    filas = {l: [f for f in supabase.t["indices_lote"] if f["lote_id"] == l] for l in ("l1", "l2", "l3")}
+    assert all(filas.values())
+    assert min(f["fecha"] for f in filas["l1"]) >= "2026-09-01"     # desde la siembra
+    assert set(filas["l1"][0]["valores"]) == set(main_mod.mod_indices.INDICES)
+    meta = _estado(supabase, "l1")["indices_meta"]
+    assert meta["fecha_mapa"] == max(f["fecha"] for f in filas["l1"])
+    assert set(meta["mapas"]) == {*main_mod.mod_indices.INDICES, "rgb"} and "ndre" in meta["mapas"]
+    # mapas en la carpeta del dueño de cada lote
+    assert "mosaicos/u-ana/l1/indices/ndre.png" in supabase.archivos
+    assert "mosaicos/u-beto/l3/indices/rgb.png" in supabase.archivos
+
+    # segunda corrida: nada nuevo, ni series ni mapas
+    ix["series"].clear(); ix["mapas"].clear()
+    main_mod.main(entorno["cfg"])
+    assert ix["series"] == [] and ix["mapas"] == []
+
+
+def test_indices_se_recalculan_si_cambia_el_poligono(entorno, supabase):
+    main_mod.main(entorno["cfg"])
+    otro = {"type": "Polygon", "coordinates": [[[-63.76, -31.88], [-63.74, -31.88],
+                                                [-63.74, -31.86], [-63.76, -31.88]]]}
+    supabase.update("lotes", {"id": "eq.l3"}, {"geometria": otro})
+    entorno["indices"]["series"].clear()
+    main_mod.main(entorno["cfg"])
+    assert entorno["indices"]["series"][0][0] == "2026-09-10"     # otra vez desde la siembra
+
+
+def test_si_fallan_los_indices_el_balance_sigue(entorno, supabase):
+    entorno["indices"]["falla"] = True
+    codigo = main_mod.main(entorno["cfg"])
+    assert codigo == 1                                      # solo por el lote roto
+    assert _serie(supabase, "l1") and _estado(supabase, "l1")["ultimo_error"] is None
+    assert not supabase.t["indices_lote"]
+    # cuando vuelve, completa desde la siembra
+    entorno["indices"]["falla"] = False
+    main_mod.main(entorno["cfg"])
+    assert entorno["indices"]["series"][-1][0] in ("2026-09-01", "2026-09-10", "2026-09-20")
+
+
+def test_interpretar_estadisticas_de_copernicus():
+    from src.indices import interpretar_estadisticas, INDICES
+    def stats(n, nodata, p):
+        return {"bands": {"B0": {"stats": {"sampleCount": n, "noDataCount": nodata, "mean": p[1],
+                                           "percentiles": {"10.0": p[0], "50.0": p[1], "90.0": p[2]}}}}}
+    body = {"data": [
+        {"interval": {"from": "2026-10-10T00:00:00Z"},
+         "outputs": {k: stats(100, 5, (0.3, 0.5, 0.7)) for k in INDICES}},
+        {"interval": {"from": "2026-10-15T00:00:00Z"},     # 60 % nublado: se descarta
+         "outputs": {k: stats(100, 60, (0.1, 0.2, 0.3)) for k in INDICES}},
+    ]}
+    filas = interpretar_estadisticas(body, 70)
+    assert [f["fecha"] for f in filas] == ["2026-10-10"]
+    assert filas[0]["cobertura_pct"] == 95.0
+    assert filas[0]["valores"]["ndre"] == {"mediana": 0.5, "p10": 0.3, "p90": 0.7, "media": 0.5}
 
 
 def test_el_suelo_del_config_no_se_hereda(entorno):

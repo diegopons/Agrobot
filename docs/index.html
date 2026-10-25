@@ -478,6 +478,31 @@ button.chico{display:inline-block;width:auto;padding:8px 12px;font-size:13.5px}
           </div>
         </div>
       </div>
+
+      <div class="panel" style="margin-top:24px">
+        <h2>Suelo del lote</h2>
+        <p class="subtitulo" id="suelo-origen">Según la Carta de Suelos de Córdoba (IDECOR)</p>
+        <div id="suelo-cifras" class="oculto">
+          <dl class="medidas" style="max-width:560px">
+            <div class="medida"><dt>Agua útil a 1 m</dt><dd id="s-au1">—</dd></div>
+            <div class="medida"><dt>Agua útil a 1,5 m</dt><dd id="s-au15">—</dd></div>
+            <div class="medida"><dt>Agua útil a 2 m</dt><dd id="s-au2">—</dd></div>
+            <div class="medida"><dt>Capacidad de uso</dt><dd id="s-cu">—</dd></div>
+            <div class="medida"><dt>Índice de productividad</dt><dd id="s-ip">—</dd></div>
+          </dl>
+          <h3 style="font-size:15px;margin:18px 0 6px">Unidades cartográficas</h3>
+          <div style="overflow-x:auto"><table id="s-unidades"></table></div>
+          <h3 style="font-size:15px;margin:18px 0 6px">Limitantes edáficas</h3>
+          <div style="overflow-x:auto"><table id="s-limitantes"></table></div>
+          <p class="pista" style="margin-top:12px;font-size:12.5px;color:var(--tinta-suave)">
+            Agua útil estimada por el INTA EEA Manfredi (Faule et al., 2024) a partir de la
+            humedad equivalente de cada serie, ponderada por la superficie del lote en cada
+            unidad. Es un valor de carta, a escala 1:50.000 o 1:100.000: una calicata en el
+            lote lo reemplaza con lo medido.
+          </p>
+        </div>
+        <div id="suelo-vacio" class="aviso">Se consulta en la próxima corrida del sistema.</div>
+      </div>
   </section>
 
   <!-- ================ PARÁMETROS Y EJECUCIÓN ================ -->
@@ -1665,7 +1690,7 @@ const estadoDe = l => l ? (Array.isArray(l.estado_lote) ? l.estado_lote[0] : l.e
 
 async function cargarLotes(seleccionar){
   const {data, error} = await sb.from('lotes')
-    .select('*, estado_lote(serie, ultima_fecha_procesada, ultima_corrida, ultimo_error)')
+    .select('*, estado_lote(serie, ultima_fecha_procesada, ultima_corrida, ultimo_error, suelo_carta)')
     .order('nombre');
   if(error){
     document.getElementById('meta').textContent = 'No se pudieron leer los lotes: ' + error.message;
@@ -1702,7 +1727,16 @@ function elegirLote(id){
   document.getElementById('btn-borrar').disabled = false;
   registro.innerHTML = ''; registro.classList.remove('visible');
   cargarFormulario(LOTE);
-  cargarSueloEnTablas(LOTE.suelo);
+  const carta = (estadoDe(LOTE) || {}).suelo_carta;
+  // Sin calicata, la tabla muestra el perfil de la carta que usa el balance;
+  // queda como punto de partida y no se guarda en el lote salvo que se edite.
+  cargarSueloEnTablas(LOTE.suelo || (carta && carta.perfil) || null);
+  if(!LOTE.suelo && carta && carta.perfil){
+    document.getElementById('cal-resumen').innerHTML +=
+      '<br><span style="color:var(--tinta-suave)">El perfil (capacidad de campo, marchitez) ' +
+      'viene de la Carta de Suelos. Si cargás la calicata, reemplaza a la carta en este lote.</span>';
+  }
+  pintarSuelo(LOTE);
   if(LOTE.geometria) ponerEnMapa(LOTE.geometria);
   cargarResultados(LOTE);
   cargarMosaico(LOTE);
@@ -1721,6 +1755,7 @@ function nuevoLote(){
   actualizar(null);
   cargarMosaico(null);
   cargarRiegos(null);
+  pintarSuelo(null);
   sinDatos('Lote nuevo: dibujalo en la pestaña «Lote», completá los parámetros y guardalo.');
   document.querySelector('nav.secciones button[data-seccion="lote"]').click();
 }
@@ -1815,6 +1850,72 @@ async function cargarMosaico(lote){
   if(error || !data || LOTE !== lote) return;
   img.onload = () => { img.style.display = 'block'; vacio.style.display = 'none'; };
   img.src = data.signedUrl;
+}
+
+// ===================== suelo del lote (Carta de Suelos, IDECOR) =====================
+const LIMITANTES = [['textura', 'Textura superficial'], ['drenaje', 'Drenaje'],
+                    ['prof_efect', 'Profundidad efectiva'], ['salinidad', 'Salinidad'],
+                    ['alcalinida', 'Alcalinidad']];
+const esc = s => String(s == null ? '' : s).replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+const mmTxt = v => v == null ? '—' : num(v, 0) + ' mm';
+const titulo = s => esc(String(s || '').toLowerCase().replace(/(^|\s)\S/g, c => c.toUpperCase()));
+
+function pintarSuelo(lote){
+  const carta = lote ? (estadoDe(lote) || {}).suelo_carta : null;
+  const cifras = document.getElementById('suelo-cifras');
+  const vacio = document.getElementById('suelo-vacio');
+  const origen = document.getElementById('suelo-origen');
+  const usaCalicata = !!(lote && lote.suelo);
+
+  if(!carta){
+    cifras.classList.add('oculto'); vacio.classList.remove('oculto');
+    vacio.textContent = lote ? 'Se consulta en la próxima corrida del sistema (dentro de la hora).'
+                             : 'Guardá el lote y el sistema consulta la carta de suelos.';
+    origen.textContent = 'Según la Carta de Suelos de Córdoba (IDECOR)';
+    return;
+  }
+  if(!carta.unidades || !carta.unidades.length){
+    cifras.classList.add('oculto'); vacio.classList.remove('oculto');
+    vacio.textContent = (carta.motivo || 'La carta no tiene datos para este lote.') +
+      (usaCalicata ? ' El balance usa tu calicata.' : ' El balance usa el perfil por defecto; cargá la calicata para mejorarlo.');
+    return;
+  }
+
+  vacio.classList.add('oculto'); cifras.classList.remove('oculto');
+  const escalas = [...new Set(carta.unidades.map(u => u.escala))].join(' y ');
+  origen.innerHTML = 'Carta de Suelos de Córdoba ' + esc(escalas) + ' (IDECOR) · ' +
+    (usaCalicata ? '<strong>el balance usa tu calicata</strong>, no estos valores'
+     : carta.perfil ? '<strong>es el perfil que usa el balance</strong>'
+     : '<span class="mal">' + esc(carta.motivo) + ' El balance usa el perfil por defecto.</span>');
+
+  document.getElementById('s-au1').textContent = mmTxt(carta.au_1m);
+  document.getElementById('s-au15').textContent = mmTxt(carta.au_1_5m);
+  document.getElementById('s-au2').textContent = mmTxt(carta.au_2m);
+  document.getElementById('s-cu').textContent = carta.capacidad_uso || '—';
+  document.getElementById('s-ip').textContent = carta.ip != null ? carta.ip : '—';
+
+  const filas = carta.unidades.slice().sort((a, b) => b.pct - a.pct).map(u =>
+    '<tr><td>' + esc(u.simbolo) + '</td>' +
+    '<td style="text-align:left">' + (u.series && u.series.length
+      ? u.series.map(s => esc(s.serie) + (s.porc ? ' ' + num(s.porc, 0) + ' %' : '') +
+                          (s.fase ? ' <span style="color:var(--tinta-suave)">(' + esc(s.fase) + ')</span>' : '')).join(', ')
+      : titulo(u.nombre)) + '</td>' +
+    '<td>' + num(u.pct, 0) + ' %</td><td>' + esc(u.capacidad_uso || '—') + '</td>' +
+    '<td>' + (u.ip != null ? num(u.ip, 0) : '—') + '</td>' +
+    '<td>' + mmTxt(u.au_1m) + '</td><td>' + mmTxt(u.au_2m) + '</td></tr>').join('');
+  const sinDato = carta.sin_dato_pct > 0
+    ? `<tr><td></td><td style="text-align:left;color:var(--tinta-suave)">Sin dato (lagunas, zonas urbanas…)</td><td>${num(carta.sin_dato_pct, 0)} %</td><td colspan="4"></td></tr>` : '';
+  document.getElementById('s-unidades').innerHTML =
+    '<thead><tr><th>Unidad</th><th style="text-align:left">Series</th><th>Del lote</th>' +
+    '<th>Cap. uso</th><th>IP</th><th>AU 1 m</th><th>AU 2 m</th></tr></thead><tbody>' + filas + sinDato + '</tbody>';
+
+  const lim = carta.limitantes || {};
+  const filasLim = LIMITANTES.filter(([c]) => lim[c] && lim[c].length).map(([c, nombre]) =>
+    '<tr><td>' + nombre + '</td><td style="text-align:left">' +
+    lim[c].map(v => esc(v.valor) + (v.pct < 99.5 ? ' (' + num(v.pct, 0) + ' %)' : '')).join('; ') + '</td></tr>').join('');
+  document.getElementById('s-limitantes').innerHTML = filasLim
+    ? '<tbody>' + filasLim + '</tbody>'
+    : '<tbody><tr><td style="color:var(--tinta-suave)">Sin datos de limitantes para este lote.</td></tr></tbody>';
 }
 
 // ===================== riegos =====================

@@ -244,6 +244,20 @@ class AlmacenLocal:
     def riegos(self, lote: Lote, desde: str, hasta: str) -> dict:
         return {}   # en modo local no hay dónde cargarlos
 
+    @property
+    def _ruta_carta(self) -> Path:
+        return Path(self._rutas["estado_json"]).with_name("suelo_carta.json")
+
+    def suelo_carta(self, lote: Lote) -> Optional[dict]:
+        try:
+            return json.loads(self._ruta_carta.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return None
+
+    def guardar_suelo_carta(self, lote: Lote, carta: dict) -> None:
+        self._ruta_carta.parent.mkdir(parents=True, exist_ok=True)
+        self._ruta_carta.write_text(json.dumps(carta, ensure_ascii=False, indent=1), encoding="utf-8")
+
     def rebobinar(self, lote: Lote, guardado: EstadoGuardado, desde: str) -> None:
         pass
 
@@ -498,6 +512,14 @@ class AlmacenSupabase:
         # La carpeta es el usuario: la política de Storage solo deja leer la propia
         self.db.subir("mosaicos", f"{lote.usuario_id}/{lote.id}.png",
                       Path(ruta).read_bytes(), "image/png")
+
+    def suelo_carta(self, lote: Lote) -> Optional[dict]:
+        filas = self.db.select("estado_lote", {"select": "suelo_carta", **self._filtro(lote)})
+        return filas[0].get("suelo_carta") if filas else None
+
+    def guardar_suelo_carta(self, lote: Lote, carta: dict) -> None:
+        self.db.upsert("estado_lote", [{"lote_id": lote.id, "suelo_carta": carta}],
+                       on_conflict="lote_id")
 
     def riegos(self, lote: Lote, desde: str, hasta: str) -> dict:
         """{fecha 'AAAA-MM-DD': mm} de los riegos cargados en el rango."""

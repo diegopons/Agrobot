@@ -174,6 +174,9 @@ create table if not exists public.estado_lote (
   ultima_corrida          timestamptz,
   ultimo_error            text
 );
+-- Suelo del lote según la Carta de Suelos (IDECOR): unidades, series, agua útil,
+-- limitantes y el perfil derivado. Se consulta una vez por polígono.
+alter table public.estado_lote add column if not exists suelo_carta jsonb;
 
 -- -----------------------------------------------------------------------------
 -- Serie diaria: lo que antes era data/balance_hidrico_lote20.csv

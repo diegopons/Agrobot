@@ -194,7 +194,21 @@ def entorno(tmp_path, monkeypatch):
     monkeypatch.setenv("CDSE_CLIENT_SECRET", "y")
     monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "t")
 
-    return {"cfg": str(ruta_cfg), "enviados": enviados, "tmp": tmp_path}
+    # La Carta de Suelos (IDECOR) simulada: anota cada consulta
+    carta = {"consultas": [], "falla": False, "au_2m": 300.0}
+
+    def consultar_falso(geojson, url=None, min_cobertura_pct=50):
+        carta["consultas"].append(geojson)
+        if carta["falla"]:
+            raise main_mod.mod_suelo_carta.ErrorCarta("IDECOR caído")
+        return {"huella_geometria": main_mod.mod_suelo_carta.huella_geometria(geojson),
+                "unidades": [{"simbolo": "Ot", "nombre": "Consociación ONCATIVO", "escala": "1:50.000",
+                              "pct": 100.0, "au_1m": 160, "au_1_5m": 231, "au_2m": carta["au_2m"]}],
+                "cobertura_pct": 100.0, "au_2m": carta["au_2m"],
+                "perfil": main_mod.mod_suelo_carta.perfil_desde_au(160, 231, carta["au_2m"])}
+    monkeypatch.setattr(main_mod.mod_suelo_carta, "consultar", consultar_falso)
+
+    return {"cfg": str(ruta_cfg), "enviados": enviados, "tmp": tmp_path, "carta": carta}
 
 
 @pytest.fixture
@@ -407,6 +421,60 @@ def test_un_riego_cargado_tarde_recalcula_desde_ese_dia(entorno, supabase, monke
     assert next(f for f in supabase.t["lotes"] if f["id"] == "l1")["recalcular_desde"] is None
     # los otros lotes no se recalcularon
     assert _estado(supabase, "l3")["ultima_corrida"] is not None
+
+
+def test_los_lotes_sin_calicata_toman_el_suelo_de_la_carta(entorno, supabase):
+    perfil = [{"prof_hasta_cm": 200, "cc_porcentaje": 30, "pmp_porcentaje": 12,
+               "densidad_aparente": 1.3}]
+    supabase.update("lotes", {"id": "eq.l2"}, {"suelo": perfil})
+
+    main_mod.main(entorno["cfg"])
+
+    # una consulta por lote, también el que tiene calicata (el roto falla antes)
+    assert len(entorno["carta"]["consultas"]) == 3
+    assert _estado(supabase, "l1")["suelo_carta"]["au_2m"] == 300.0
+    # el de calicata la guarda para mostrarla, pero el balance usa la calicata
+    assert _estado(supabase, "l2")["suelo_carta"]["au_2m"] == 300.0
+    from src.suelo import precalcular_parametros_suelo as _pre
+    assert max(f["au_max_mm"] for f in _serie(supabase, "l2")) <= _pre(perfil)["au_max_acum_mm"].max() + 0.01
+    res = {r["lote_id"]: r["resumen"] for r in supabase.t["resumen_lote"]}
+    assert res["l1"]["perfil_de_suelo"]["origen"].startswith("Carta de Suelos")
+    assert res["l2"]["perfil_de_suelo"]["origen"].startswith("calicata")
+    # el AU máximo a la profundidad de raíz sale del perfil de la carta
+    from src.suelo import obtener_au_max_para_profundidad, precalcular_parametros_suelo
+    df = precalcular_parametros_suelo(main_mod.mod_suelo_carta.perfil_desde_au(160, 231, 300.0))
+    ultima = _serie(supabase, "l1")[-1]
+    assert ultima["au_max_mm"] == pytest.approx(
+        obtener_au_max_para_profundidad(ultima["prof_raiz_cm"], df), abs=0.05)
+
+
+def test_la_carta_se_consulta_una_vez_por_poligono(entorno, supabase):
+    main_mod.main(entorno["cfg"])
+    entorno["carta"]["consultas"].clear()
+    supabase.update("lotes", {"id": "eq.l3"}, {"reiniciar": True})
+    main_mod.main(entorno["cfg"])
+    assert entorno["carta"]["consultas"] == []          # ya estaba guardada
+
+    otro = {"type": "Polygon", "coordinates": [[[-63.76, -31.88], [-63.74, -31.88],
+                                                [-63.74, -31.86], [-63.76, -31.88]]]}
+    supabase.update("lotes", {"id": "eq.l3"}, {"geometria": otro})
+    main_mod.main(entorno["cfg"])
+    assert len(entorno["carta"]["consultas"]) == 1      # cambió el polígono
+
+
+def test_si_idecor_se_cae_usa_el_perfil_por_defecto_y_reintenta(entorno, supabase):
+    entorno["carta"]["falla"] = True
+    main_mod.main(entorno["cfg"])
+    assert not _estado(supabase, "l1").get("suelo_carta")
+    assert _estado(supabase, "l1")["serie"] == 1
+    res = {r["lote_id"]: r["resumen"] for r in supabase.t["resumen_lote"]}
+    assert res["l1"]["perfil_de_suelo"]["motivo"] == "IDECOR no respondió"
+
+    # Vuelve el servicio: se guarda la carta y, como cambió el perfil, se recalcula
+    entorno["carta"]["falla"] = False
+    main_mod.main(entorno["cfg"])
+    assert _estado(supabase, "l1")["suelo_carta"]
+    assert _estado(supabase, "l1")["serie"] == 2
 
 
 def test_el_suelo_del_config_no_se_hereda(entorno):

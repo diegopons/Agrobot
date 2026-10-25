@@ -42,6 +42,7 @@ from src.balance import procesar_dias_nuevos
 from src.clima_openmeteo import descargar_pronostico
 from src import pronostico as mod_pronostico
 from src import clima as mod_clima
+from src import suelo_carta as mod_suelo_carta
 from src import publicar_estado as mod_estado_json
 from src.config import cargar_config
 from src.estado import huella_corrida
@@ -156,6 +157,59 @@ def configurar_logging(log_file: str) -> None:
     )
 
 
+def resolver_suelo(lote: Lote, almacen, aoi_info: dict) -> dict:
+    """Decide de dónde sale el perfil de suelo del lote y lo deja en su cfg.
+
+    1. La calicata o el perfil que cargó el usuario.
+    2. La Carta de Suelos de Córdoba (IDECOR) para el polígono del lote. Se
+       consulta una sola vez por polígono y queda guardada: si el servicio
+       cambia o se cae, la huella del balance no se mueve y la campaña no se
+       recalcula sin motivo.
+    3. El perfil por defecto (serie Oncativo de la planilla BH p-Pons).
+
+    La carta se consulta aunque el lote tenga calicata: el tablero la muestra
+    igual (series, capacidad de uso, limitantes), solo que no entra al balance.
+
+    Devuelve el origen, para el resumen y el tablero.
+    """
+    cfg = lote.cfg
+    calicata = bool(cfg.get("suelo"))
+    con_calicata = {"origen": "calicata o perfil cargado por el usuario"}
+
+    cfg_carta = cfg.get("suelo_carta", {})
+    if not cfg_carta.get("habilitado", True):
+        return con_calicata if calicata else {"origen": "perfil por defecto"}
+
+    carta = almacen.suelo_carta(lote)
+    if not carta or carta.get("huella_geometria") != mod_suelo_carta.huella_geometria(aoi_info["geojson"]):
+        try:
+            carta = mod_suelo_carta.consultar(
+                aoi_info["geojson"],
+                url=cfg_carta.get("url", mod_suelo_carta.URL_WFS),
+                min_cobertura_pct=float(cfg_carta.get("min_cobertura_pct", 50)),
+            )
+            almacen.guardar_suelo_carta(lote, carta)
+            log.info("Carta de Suelos consultada: %s", mod_suelo_carta.describir(carta))
+        except mod_suelo_carta.ErrorCarta as e:
+            # No se guarda nada: la próxima corrida vuelve a intentar. Si
+            # entonces responde, cambia el perfil y el balance se recalcula
+            # solo desde la siembra con el suelo correcto.
+            log.warning("No se pudo consultar la Carta de Suelos: %s. Se reintenta en la "
+                        "próxima corrida.", e)
+            if calicata:
+                return con_calicata
+            return {"origen": "perfil por defecto", "motivo": "IDECOR no respondió"}
+
+    if calicata:
+        return con_calicata
+    if carta.get("perfil"):
+        cfg["suelo"] = carta["perfil"]
+        return {"origen": "Carta de Suelos de Córdoba (IDECOR)",
+                "descripcion": mod_suelo_carta.describir(carta)}
+    log.info("Sin perfil de la Carta de Suelos: %s", carta.get("motivo"))
+    return {"origen": "perfil por defecto", "motivo": carta.get("motivo")}
+
+
 def correr_lote(lote: Lote, almacen, cdse: tuple[str, str], opciones: Opciones) -> str:
     """Procesa los días nuevos de un lote. Devuelve "ok" o "sin_novedad".
 
@@ -167,6 +221,8 @@ def correr_lote(lote: Lote, almacen, cdse: tuple[str, str], opciones: Opciones) 
     # 1. AOI
     aoi_info = lote.aoi()
     log.info("Lote cargado: %.2f ha. BBox=%s", aoi_info["area_ha"], aoi_info["bbox"])
+    origen_suelo = resolver_suelo(lote, almacen, aoi_info)
+    log.info("Perfil de suelo: %s", origen_suelo.get("descripcion") or origen_suelo["origen"])
 
     # 2. Estado y suelo
     _orden_clima = [
@@ -554,20 +610,19 @@ def correr_lote(lote: Lote, almacen, cdse: tuple[str, str], opciones: Opciones) 
 
     # --- Resumen para agentes conversacionales (n8n, bots) y el tablero ---
     try:
-        almacen.publicar_resumen(
-            lote,
-            mod_estado_json.construir_estado(
-                df_completo,
-                cfg,
-                aoi_info,
-                estacion_siga=estacion_siga,
-                detalle_clima=detalle_clima,
-                linea_pronostico=linea_pronostico,
-                df_pronostico=df_pronostico_pub,
-                ajuste_riego=ajuste_riego,
-                diag_ndvi=diag_ndvi,
-            ),
+        resumen = mod_estado_json.construir_estado(
+            df_completo,
+            cfg,
+            aoi_info,
+            estacion_siga=estacion_siga,
+            detalle_clima=detalle_clima,
+            linea_pronostico=linea_pronostico,
+            df_pronostico=df_pronostico_pub,
+            ajuste_riego=ajuste_riego,
+            diag_ndvi=diag_ndvi,
         )
+        resumen["perfil_de_suelo"] = origen_suelo
+        almacen.publicar_resumen(lote, resumen)
     except Exception as e:  # noqa: BLE001
         # El balance ya está guardado: que falle el resumen no debe tumbar nada.
         log.warning("No se pudo publicar el estado para agentes: %s", e)

@@ -66,6 +66,30 @@ El polígono que define el área de cálculo.
   valor raro en la curva fue una nube sobre parte del lote o algo real en
   todo el cultivo. Las zonas grises son nube o sombra detectada.
 
+### Suelo del lote
+
+Debajo del mapa, lo que dice la **Carta de Suelos de Córdoba** (IDECOR) sobre
+ese polígono. El sistema la consulta solo, para todos los lotes de todos los
+usuarios, en la primera corrida después de guardar o cambiar el polígono.
+
+- Agua útil a 1 m, 1,5 m y 2 m, ponderada por la superficie del lote en cada
+  unidad cartográfica (método de Faule et al., 2024, INTA EEA Manfredi).
+- Capacidad de uso e índice de productividad.
+- Las unidades que cruza el lote, con sus series y el porcentaje de cada una.
+- Limitantes edáficas: textura superficial, drenaje, profundidad efectiva,
+  salinidad y alcalinidad.
+
+**Qué perfil usa el balance**, en este orden:
+
+1. La calicata o el perfil cargado en Parámetros.
+2. El de la carta, si las unidades con dato cubren al menos la mitad del lote.
+3. El perfil por defecto (serie Oncativo).
+
+Sin calicata, la tabla de la calicata muestra el perfil de la carta como punto
+de partida; cargarle los valores medidos lo reemplaza en ese lote. La carta se
+consulta una vez por polígono: si el servicio de IDECOR se cae, ese día se usa
+el perfil por defecto y se reintenta en la corrida siguiente.
+
 ## Parámetros
 
 Todo lo propio del lote, y el botón para guardarlo.

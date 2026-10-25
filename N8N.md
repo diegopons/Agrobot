@@ -124,8 +124,10 @@ paso 3. En el prompt del sistema, agregá algo como:
 > `resumen` en null todavía no se calculó; si tiene `ultimo_error`, decilo.
 > Respetá las `advertencias` de cada resumen, igual que antes.
 
-El contenido de cada `resumen` es exactamente el de `estado_actual.json`,
-así que las instrucciones que ya tenía el agente siguen valiendo.
+El contenido de cada `resumen` es el de `estado_actual.json`, así que las
+instrucciones que ya tenía el agente siguen valiendo. Trae además
+`perfil_de_suelo`: si el balance usa la calicata, la Carta de Suelos (con las
+unidades y el agua útil a 2 m) o el perfil por defecto.
 
 ---
 

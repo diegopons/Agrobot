@@ -2051,8 +2051,39 @@ let TOKEN_ENLACE = HASH_INICIAL.get('access_token');
 // aprobación y el de "¿Te olvidaste la contraseña?". Se canjea recién al
 // guardar la contraseña, en esta misma pestaña.
 let TOKEN_HASH = CREANDO_CLAVE ? HASH_INICIAL.get('token_hash') : null;
+// La sesión se guarda con un nombre propio y no con el de fábrica
+// (sb-<proyecto>-auth-token): en este navegador algo la borraba apenas se
+// guardaba. Si se borra igual, la consola dice quién: esta página (con el
+// lugar del código) u otra pestaña.
+const CLAVE_SESION = 'agrobot-sesion';
+const almacenSesion = {
+  getItem: k => localStorage.getItem(k),
+  setItem: (k, v) => {
+    localStorage.setItem(k, v);
+    if(k !== CLAVE_SESION) return;
+    // Una extensión puede borrarla sin pasar por acá ni avisar: se revisa que siga
+    [1000, 5000].forEach(ms => setTimeout(() => {
+      if(localStorage.getItem(k) === null && !almacenSesion.borrada)
+        console.warn(`Agrobot: la sesión desapareció a los ${ms / 1000} s sin que la borre esta página (¿una extensión?)`);
+    }, ms));
+    almacenSesion.borrada = false;
+  },
+  removeItem: k => {
+    if(k === CLAVE_SESION){
+      almacenSesion.borrada = true;
+      console.warn('Agrobot: esta página borra la sesión', new Error().stack);
+    }
+    localStorage.removeItem(k);
+  },
+};
+window.addEventListener('storage', ev => {
+  if(ev.key === CLAVE_SESION && ev.newValue === null)
+    console.warn('Agrobot: otra pestaña o ventana borró la sesión');
+  if(ev.key === null) console.warn('Agrobot: alguien vació el almacenamiento del sitio');
+});
 const sb = (window.supabase && CFG.supabaseUrl && CFG.supabaseAnonKey)
-  ? window.supabase.createClient(CFG.supabaseUrl, CFG.supabaseAnonKey) : null;
+  ? window.supabase.createClient(CFG.supabaseUrl, CFG.supabaseAnonKey,
+      {auth: {storageKey: CLAVE_SESION, storage: almacenSesion}}) : null;
 
 let USUARIO = null;
 let LOTES = [];

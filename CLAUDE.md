@@ -51,8 +51,10 @@ Lotes: "Lote 20" (pivote de 92 ha sin cultivo, con calicata; el usuario pidió
 dejarlo como está) y "lote21" (3,3 ha de trigo, siembra 20/05, perfil de la carta).
 
 Pendiente:
-1. Adaptar el bot de n8n (ver `N8N.md`): faltan el workflow exportado, dónde corre
-   n8n y una secret key de Supabase propia para n8n.
+1. Bot de n8n (ver `N8N.md`): flujo multiusuario armado en `n8n/bot_multiusuario.json`
+   (rama `bot-n8n-multiusuario`, 2026-10-26), sin probar. n8n corre en
+   `hernanpons.app.n8n.cloud` (MCP `n8n` ya autorizado). Faltan: correr el schema
+   (trae `historico_por_chat`), la secret key `n8n`, importar, activar y probar.
 2. Verificar que arranquen las corridas "schedule" de Actions (al cerrar no había).
 3. Apagar el repo viejo `balance-hidrico-lote20`.
 4. Borrar del repo los datos viejos del Lote 20 (`data/`, `docs/*.csv|json|geojson|png`, `aoi/`).

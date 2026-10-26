@@ -10,7 +10,7 @@
 --     proceso diario, que usa la clave service_role y no pasa por RLS. Un
 --     usuario puede leerlos, nunca modificarlos.
 --   · El bot (n8n) también usa service_role, y solo a través de las funciones
---     estado_por_chat y vincular_telegram: identifica al usuario por su chat
+--     estado_por_chat, historico_por_chat y vincular_telegram: identifica al usuario por su chat
 --     de Telegram y responde sobre los lotes de ese usuario y de nadie más.
 -- =============================================================================
 
@@ -525,14 +525,38 @@ as $$
   where p.telegram_chat_id = p_chat_id;
 $$;
 
+-- Serie diaria de un lote (la campaña vigente) entre dos fechas, para las
+-- preguntas del bot sobre días anteriores a los 14 que trae el resumen.
+-- Solo si el lote es del usuario vinculado a ese chat; si no, lista vacía.
+-- Como mucho 400 días por consulta.
+create or replace function public.historico_por_chat(p_chat_id text, p_lote_id uuid,
+                                                     p_desde date, p_hasta date)
+returns jsonb
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select coalesce(jsonb_agg(to_jsonb(b) - 'lote_id' - 'serie' order by b.fecha), '[]'::jsonb)
+    from public.balance_diario b
+    join public.estado_lote e on e.lote_id = b.lote_id and e.serie = b.serie
+    join public.lotes l on l.id = b.lote_id
+    join public.perfiles p on p.id = l.usuario_id
+   where p.telegram_chat_id = p_chat_id
+     and l.id = p_lote_id
+     and b.fecha between p_desde and least(p_hasta, p_desde + 400);
+$$;
+
 revoke all on function public.generar_codigo_vinculacion() from public, anon;
 revoke all on function public.desvincular_telegram()       from public, anon;
 revoke all on function public.vincular_telegram(text, text) from public, anon, authenticated;
 revoke all on function public.estado_por_chat(text)         from public, anon, authenticated;
+revoke all on function public.historico_por_chat(text, uuid, date, date) from public, anon, authenticated;
 grant execute on function public.generar_codigo_vinculacion() to authenticated;
 grant execute on function public.desvincular_telegram()       to authenticated;
 grant execute on function public.vincular_telegram(text, text) to service_role;
 grant execute on function public.estado_por_chat(text)         to service_role;
+grant execute on function public.historico_por_chat(text, uuid, date, date) to service_role;
 
 -- -----------------------------------------------------------------------------
 -- Mosaicos de NDVI (Storage): mosaicos/<usuario_id>/<lote_id>.png

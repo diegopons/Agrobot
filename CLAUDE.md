@@ -54,7 +54,7 @@ Pendiente:
 1. Bot de n8n (ver `N8N.md`): flujo multiusuario armado en `n8n/bot_multiusuario.json`
    (rama `bot-n8n-multiusuario`, 2026-10-26), sin probar. n8n corre en
    `hernanpons.app.n8n.cloud` (MCP `n8n` ya autorizado). Faltan: correr el schema
-   (trae `historico_por_chat`), la secret key `n8n`, importar, activar y probar.
+   (trae `historico_por_chat`), la secret key `n8n_bot`, importar, activar y probar.
 2. Verificar que arranquen las corridas "schedule" de Actions (al cerrar no había).
 3. Apagar el repo viejo `balance-hidrico-lote20`.
 4. Borrar del repo los datos viejos del Lote 20 (`data/`, `docs/*.csv|json|geojson|png`, `aoi/`).

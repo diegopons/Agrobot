@@ -19,7 +19,7 @@ El flujo listo está en `n8n/bot_multiusuario.json` (lo arma a partir de
 1. **Esquema**: volvé a correr `supabase/schema.sql` entero en el SQL Editor
    (trae `historico_por_chat`, nueva).
 2. **Clave propia para n8n**: Supabase → Settings → API Keys → Secret keys →
-   New secret key, con el nombre `n8n`. Si alguna vez se filtra se borra sin
+   New secret key, con el nombre `n8n_bot`. Si alguna vez se filtra se borra sin
    cortar GitHub Actions, que usa `github_actions`.
 3. **Credencial en n8n**: Credentials → New → **Custom Auth**, con nombre
    `Supabase (n8n)` y este JSON (con la clave del paso 2 en los dos lugares):

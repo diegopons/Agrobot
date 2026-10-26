@@ -67,6 +67,19 @@ En **Authentication → URL Configuration**:
   `https://diegopons.github.io/Agrobot/`
 - **Redirect URLs**: la misma dirección.
 
+En **Authentication → Sign In / Providers → Email**:
+
+- **Email** habilitado (incluye el ingreso con contraseña).
+- **Email OTP Expiration**: `86400` (24 horas, el máximo). Es lo que dura el
+  enlace para crear la contraseña que llega al aprobar la cuenta; con la hora
+  de fábrica, quien lee el correo al día siguiente lo encuentra vencido (puede
+  pedir otro con "¿Te olvidaste la contraseña?").
+
+Conviene traducir en **Authentication → Emails → Templates** los mensajes
+*Confirm signup* (llega al pedir acceso) y *Reset password* (llega con "¿Te
+olvidaste la contraseña?"). El de aprobación no usa plantilla: lo manda la
+corrida diaria.
+
 > ⚠️ **El correo de Supabase de fábrica solo manda enlaces a los miembros del
 > equipo del proyecto**, y unos pocos por hora. Para que entren otros usuarios
 > hay que configurar un servidor de correo propio en
@@ -111,14 +124,19 @@ La dirección del tablero muestra, a quien no inició sesión, una **portada** q
 explica el servicio y un formulario para **pedir acceso** (correo, nombre,
 organización y para qué lo usaría).
 
-- Una cuenta nueva queda **pendiente**: entra con el enlace, pero ve "tu pedido
-  está en revisión" y no puede cargar lotes. Lo controla la base de datos, no
-  solo la página.
+- Una cuenta nueva queda **pendiente**: si entra, ve "tu pedido está en
+  revisión" y no puede cargar lotes. Lo controla la base de datos, no solo la
+  página.
 - Al administrador le llega un **correo** con los datos del pedido y un enlace a
   la pestaña **Usuarios** del tablero, donde lo aprueba con un botón. (También
   por Telegram, si tiene el chat vinculado.)
-- Al aprobarla, el usuario recibe un correo avisándole que ya puede entrar.
-  Los dos correos salen en la corrida de la hora siguiente.
+- Al aprobarla, el usuario recibe un correo con un enlace de un solo uso para
+  **crear su contraseña** (lo genera la corrida con la API de administración
+  de Supabase, que además le confirma el correo). Los dos correos salen en la
+  corrida de la hora siguiente. Si el correo no sale, se reintenta con un
+  enlace nuevo.
+- Después entra desde la pestaña **Ingresar** de la portada, con correo y
+  contraseña.
 - **Quitar acceso** no borra los lotes de esa cuenta: dejan de calcularse y el
   usuario ya no puede modificarlos.
 

@@ -63,7 +63,15 @@ def _enviar_correo(destinos: list[str], asunto: str, cuerpo: str) -> bool:
 
 
 def avisar_aprobaciones(almacen) -> int:
-    """Correo (y Telegram, si lo vinculó) a quien un administrador acaba de habilitar."""
+    """Correo con el enlace para crear la contraseña a quien un administrador
+    acaba de habilitar (y un Telegram, si lo vinculó).
+
+    El enlace va solo por correo: un chat de Telegram puede ser un grupo. Si el
+    correo no sale, no se marca y se reintenta con un enlace nuevo.
+    """
+    from .almacen import ErrorSupabase
+    import requests
+
     aprobados = almacen.aprobados_sin_avisar()
     if not aprobados:
         return 0
@@ -71,16 +79,30 @@ def avisar_aprobaciones(almacen) -> int:
     token = os.environ.get("TELEGRAM_BOT_TOKEN")
     avisados = []
     for p in aprobados:
-        texto = (f"Hola{' ' + p['nombre'] if p.get('nombre') else ''}:\n\n"
-                 "Tu cuenta de Agrobot ya está habilitada. Entrá con tu correo, dibujá tu lote y "
-                 "cargá la fecha de siembra: en menos de una hora tenés el balance calculado.\n\n"
-                 f"{url}\n")
-        salio = bool(p.get("email")) and _enviar_correo(
-            [p["email"]], "Tu cuenta de Agrobot está habilitada", texto)
-        if token and p.get("telegram_chat_id") and enviar_telegram(token, p["telegram_chat_id"], escape(texto)):
-            salio = True
-        if salio:
-            avisados.append(p["id"])
+        if not p.get("email"):
+            continue
+        try:
+            enlace = almacen.enlace_para_crear_clave(p, url)
+        except (ErrorSupabase, requests.RequestException) as e:
+            logger.warning("No se pudo generar el enlace de contraseña para %s: %s", p["email"], e)
+            continue
+        saludo = f"Hola{' ' + p['nombre'] if p.get('nombre') else ''}:"
+        texto = (f"{saludo}\n\n"
+                 "Tu cuenta de Agrobot ya está habilitada. Para entrar, creá tu contraseña con "
+                 "este enlace (sirve una sola vez):\n\n"
+                 f"{enlace}\n\n"
+                 f"Después entrás siempre desde {url}, pestaña Ingresar, con tu correo y esa "
+                 "contraseña. Si el enlace venció, pedí uno nuevo ahí mismo con "
+                 "\"¿Te olvidaste la contraseña?\".\n\n"
+                 "Dibujá tu lote y cargá la fecha de siembra: en menos de una hora tenés el "
+                 "balance calculado.\n")
+        if not _enviar_correo([p["email"]], "Tu cuenta de Agrobot está habilitada", texto):
+            continue
+        if token and p.get("telegram_chat_id"):
+            enviar_telegram(token, p["telegram_chat_id"], escape(
+                f"{saludo} tu cuenta de Agrobot ya está habilitada. Te mandamos a {p['email']} "
+                "el enlace para crear tu contraseña."))
+        avisados.append(p["id"])
     if avisados:
         almacen.marcar_aprobacion_avisada(avisados)
         logger.info("Aviso de cuenta habilitada enviado a %d usuario(s).", len(avisados))

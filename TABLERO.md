@@ -6,9 +6,20 @@ desde la carpeta `docs/`. Para conectarla con Supabase, ver
 
 ## Ingreso
 
-Cada persona entra con su correo: la página le manda un enlace y con eso
-queda adentro, sin contraseña. Cada cuenta ve **solo sus lotes**; eso lo
-garantiza la base de datos, no la página.
+La portada tiene dos pestañas:
+
+- **Pedir acceso**: correo, nombre y para qué lo usaría, una sola vez. La
+  cuenta queda pendiente hasta que un administrador la aprueba (pestaña
+  Usuarios). Al aprobarla, en la corrida siguiente le llega un correo con un
+  enlace para **crear su contraseña**. Al guardarla entra al tablero, que la
+  primera vez la lleva a vincular Telegram con el código ya generado.
+- **Ingresar** (*¿Sos usuario? Ingresá aquí*): correo y contraseña. Con
+  **¿Te olvidaste la contraseña?** le llega un enlace para crear una nueva; es
+  también lo que usa quien tenía cuenta de antes, sin contraseña.
+
+La contraseña se cambia desde la pestaña **Cuenta**. Supabase la guarda
+cifrada: nadie puede leerla, ni siquiera un administrador. Cada cuenta ve
+**solo sus lotes**; eso lo garantiza la base de datos, no la página.
 
 Arriba está el **selector de lotes**: cambia de lote en todas las pestañas a
 la vez. **+ Nuevo lote** arranca uno en blanco. La página recuerda el último

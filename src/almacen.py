@@ -260,6 +260,9 @@ class AlmacenLocal:
     def marcar_aprobacion_avisada(self, ids: list[str]) -> None:
         pass
 
+    def enlace_para_crear_clave(self, perfil: dict, volver_a: str) -> str:
+        raise NotImplementedError("en modo local no hay cuentas")
+
     @property
     def _ruta_carta(self) -> Path:
         return Path(self._rutas["estado_json"]).with_name("suelo_carta.json")
@@ -320,10 +323,10 @@ class ErrorSupabase(RuntimeError):
 
 
 class ClienteSupabase:
-    """Lo mínimo de la API REST de Supabase (PostgREST + Storage).
+    """Lo mínimo de la API REST de Supabase (PostgREST + Storage + Auth admin).
 
     Se usa `requests` directo en lugar del paquete `supabase` para no sumar
-    dependencias: son cinco operaciones.
+    dependencias: son unas pocas operaciones.
     """
 
     TAMANO_LOTE = 500   # filas por pedido al escribir
@@ -334,6 +337,7 @@ class ClienteSupabase:
         # SUPABASE_REST_URL permite apuntar a un PostgREST suelto (pruebas)
         self.rest = os.environ.get("SUPABASE_REST_URL", "").rstrip("/") or f"{url}/rest/v1"
         self.storage = f"{url}/storage/v1"
+        self.auth = f"{url}/auth/v1"
         self.timeout = timeout
         self.sesion = requests.Session()
         self.sesion.headers.update({"apikey": clave, "Authorization": f"Bearer {clave}"})
@@ -378,6 +382,21 @@ class ClienteSupabase:
     def subir(self, bucket: str, ruta: str, contenido: bytes, tipo: str) -> None:
         self._pedir("POST", f"{self.storage}/object/{bucket}/{ruta}", data=contenido,
                     headers={"Content-Type": tipo, "x-upsert": "true"})
+
+    def enlace_para_crear_clave(self, usuario_id: str, email: str, volver_a: str) -> str:
+        """Enlace de un solo uso para que el usuario cree su contraseña.
+
+        Supabase lo genera sin mandar correo: el correo lo manda avisos_admin.
+        Antes se confirma la dirección, porque el pedido pudo quedar sin
+        confirmar; el enlace llega a esa misma dirección, así que la prueba igual.
+        """
+        self._pedir("PUT", f"{self.auth}/admin/users/{usuario_id}", json={"email_confirm": True})
+        r = self._pedir("POST", f"{self.auth}/admin/generate_link",
+                        json={"type": "recovery", "email": email, "redirect_to": volver_a}).json()
+        enlace = r.get("action_link") or (r.get("properties") or {}).get("action_link")
+        if not enlace:
+            raise ErrorSupabase(f"generate_link no devolvió el enlace para {email}")
+        return enlace
 
 
 class AlmacenSupabase:
@@ -595,6 +614,9 @@ class AlmacenSupabase:
     def marcar_aprobacion_avisada(self, ids: list[str]) -> None:
         if ids:
             self.db.update("perfiles", {"id": f"in.({','.join(ids)})"}, {"aviso_aprobacion": True})
+
+    def enlace_para_crear_clave(self, perfil: dict, volver_a: str) -> str:
+        return self.db.enlace_para_crear_clave(perfil["id"], perfil["email"], volver_a)
 
     def suelo_carta(self, lote: Lote) -> Optional[dict]:
         filas = self.db.select("estado_lote", {"select": "suelo_carta", **self._filtro(lote)})

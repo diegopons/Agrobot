@@ -78,6 +78,8 @@ class BaseFalsa:
     def __init__(self):
         self.t = {k: [] for k in self.CLAVES}
         self.archivos = {}
+        self.enlaces = []           # enlaces de contraseña pedidos a Auth
+        self.auth_falla = False
 
     @classmethod
     def _cumple(cls, fila, filtros):
@@ -142,6 +144,12 @@ class BaseFalsa:
 
     def subir(self, bucket, ruta, contenido, tipo):
         self.archivos[f"{bucket}/{ruta}"] = contenido
+
+    def enlace_para_crear_clave(self, usuario_id, email, volver_a):
+        if self.auth_falla:
+            raise mod_almacen.ErrorSupabase("Auth caído")
+        self.enlaces.append((usuario_id, email, volver_a))
+        return f"https://supabase.falso/auth/v1/verify?token=t{len(self.enlaces)}&type=recovery"
 
 
 def _lote(id_, usuario, nombre, siembra, geometria=CUADRADO, **extra):
@@ -588,6 +596,8 @@ def test_aviso_de_pedidos_de_acceso(entorno, supabase, monkeypatch):
         def login(self, u, c): assert c == "abcdefghijklmnop"
         def send_message(self, m): enviados.append((m["To"], m.get_content()))
     monkeypatch.setattr(av.smtplib, "SMTP_SSL", SMTPFalso)
+    monkeypatch.setattr(av, "enviar_telegram",
+                        lambda tok, chat, msg: entorno["enviados"].append((chat, msg)) or True)
     monkeypatch.setenv("SMTP_USUARIO", "agrobot@gmail.com")
     monkeypatch.setenv("SMTP_CLAVE", "abcd efgh ijkl mnop")
     main_mod.main(entorno["cfg"])
@@ -603,12 +613,27 @@ def test_aviso_de_pedidos_de_acceso(entorno, supabase, monkeypatch):
     main_mod.main(entorno["cfg"])
     assert enviados == []
 
-    # el administrador la aprueba desde el tablero (aprobar_usuario): le llega el aviso a ella
-    supabase.update("perfiles", {"id": "eq.u-nuevo"}, {"aprobado": True, "aviso_aprobacion": False})
+    # el administrador la aprueba desde el tablero (aprobar_usuario), pero Auth
+    # falla: no se manda nada y queda para la corrida siguiente
+    supabase.update("perfiles", {"id": "eq.u-nuevo"},
+                    {"aprobado": True, "aviso_aprobacion": False, "telegram_chat_id": "333"})
+    supabase.auth_falla = True
+    entorno["enviados"].clear()
+    main_mod.main(entorno["cfg"])
+    assert enviados == []
+    assert next(p for p in supabase.t["perfiles"] if p["id"] == "u-nuevo")["aviso_aprobacion"] is False
+
+    # Auth vuelve: le llega el correo con el enlace para crear la contraseña
+    supabase.auth_falla = False
     main_mod.main(entorno["cfg"])
     destino, cuerpo = enviados[1]
     assert destino == "carla@x.com" and "habilitada" in cuerpo
+    assert supabase.enlaces == [("u-nuevo", "carla@x.com", "https://diegopons.github.io/Agrobot/")]
+    assert "verify?token=t1&type=recovery" in cuerpo and "Ingresar" in cuerpo
     assert next(p for p in supabase.t["perfiles"] if p["id"] == "u-nuevo")["aviso_aprobacion"] is True
+    # por Telegram el aviso, sin el enlace (el chat puede ser un grupo)
+    tg = [m for c, m in entorno["enviados"] if c == "333"]
+    assert len(tg) == 1 and "habilitada" in tg[0] and "verify" not in tg[0]
 
 
 def test_el_suelo_del_config_no_se_hereda(entorno):

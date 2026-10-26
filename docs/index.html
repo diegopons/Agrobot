@@ -339,6 +339,11 @@ button.chico{display:inline-block;width:auto;padding:8px 12px;font-size:13.5px}
 .p-form{background:var(--papel);color:var(--tinta);padding:28px;border-radius:6px;
   box-shadow:0 24px 60px rgba(0,0,0,.35);border-top:4px solid var(--trigo)}
 .p-form h2{margin-bottom:4px;font-size:20px}
+.p-acceso-tabs{display:flex;gap:4px;margin:-8px 0 18px;border-bottom:1px solid var(--linea)}
+.p-acceso-tabs button{flex:1;background:none;border:0;border-bottom:3px solid transparent;border-radius:0;
+  padding:8px 4px;font-weight:600;color:var(--tinta-suave);margin-bottom:-1px}
+.p-acceso-tabs button[aria-selected="true"]{color:var(--tinta);border-bottom-color:var(--trigo)}
+.p-enlace{background:none;border:0;padding:0;color:var(--agua);text-decoration:underline;cursor:pointer;font:inherit}
 .opc{font-weight:400;color:var(--tinta-suave)}
 .p-nota{font-size:12.5px;color:var(--tinta-suave);margin:12px 0 0}
 
@@ -432,9 +437,33 @@ nav.secciones button[aria-selected="true"]{border-bottom-color:var(--trigo)}
           </ul>
         </div>
         <div class="p-form">
+          <div class="p-acceso-tabs" role="tablist">
+            <button type="button" role="tab" data-acceso="ingresar" aria-selected="false">Ingresar</button>
+            <button type="button" role="tab" data-acceso="pedir" aria-selected="true">Pedir acceso</button>
+          </div>
+
+          <div id="acceso-ingresar" class="oculto">
+            <h2>Ingresar</h2>
+            <p class="subtitulo">¿Sos usuario? Ingresá aquí.</p>
+            <form id="form-ingresar">
+              <div class="campo">
+                <label for="f-ing-email">Correo electrónico</label>
+                <input type="email" id="f-ing-email" required autocomplete="email">
+              </div>
+              <div class="campo" style="margin-top:10px">
+                <label for="f-ing-clave">Contraseña</label>
+                <input type="password" id="f-ing-clave" required autocomplete="current-password">
+              </div>
+              <button class="principal" type="submit" style="margin-top:14px">Ingresar</button>
+            </form>
+            <p class="p-nota"><button type="button" class="p-enlace" id="btn-olvide">¿Te olvidaste la
+              contraseña?</button> Te mandamos un enlace para crear una nueva.</p>
+          </div>
+
+          <div id="acceso-pedir">
           <h2 id="form-titulo">Pedir acceso</h2>
-          <p class="subtitulo">Te mandamos un enlace al correo para entrar, sin contraseña.
-            Si ya tenés cuenta, poné solo tu correo.</p>
+          <p class="subtitulo">Completá tus datos una sola vez. Cuando habiliten tu cuenta te
+            llega un correo para crear tu contraseña.</p>
           <form id="form-login">
             <div class="campo">
               <label for="f-email">Correo electrónico</label>
@@ -442,8 +471,8 @@ nav.secciones button[aria-selected="true"]{border-bottom-color:var(--trigo)}
             </div>
             <div id="campos-registro">
               <div class="campo" style="margin-top:10px">
-                <label for="f-reg-nombre">Nombre <span class="opc">(la primera vez)</span></label>
-                <input type="text" id="f-reg-nombre" autocomplete="name" maxlength="80">
+                <label for="f-reg-nombre">Nombre</label>
+                <input type="text" id="f-reg-nombre" required autocomplete="name" maxlength="80">
               </div>
               <div class="campo" style="margin-top:10px">
                 <label for="f-reg-org">Organización o actividad <span class="opc">(opcional)</span></label>
@@ -454,10 +483,11 @@ nav.secciones button[aria-selected="true"]{border-bottom-color:var(--trigo)}
                 <input type="text" id="f-reg-motivo" maxlength="200" placeholder="Riego de maíz con pivote, 3 lotes…">
               </div>
             </div>
-            <button class="principal" type="submit" style="margin-top:14px">Enviarme el enlace</button>
+            <button class="principal" type="submit" style="margin-top:14px">Pedir acceso</button>
           </form>
-          <div id="aviso-login" class="aviso oculto"></div>
           <p class="p-nota">Las cuentas nuevas se habilitan a mano: te avisamos por correo cuando esté lista.</p>
+          </div>
+          <div id="aviso-login" class="aviso oculto"></div>
         </div>
       </div>
     </header>
@@ -506,7 +536,8 @@ nav.secciones button[aria-selected="true"]{border-bottom-color:var(--trigo)}
         <h2>Tres pasos y el lote se calcula solo</h2>
         <ol class="p-pasos">
           <li><span>1</span><div><strong>Pedís acceso</strong> con tu correo. Cuando la cuenta está
-            habilitada, entrás con el enlace que te llega.</div></li>
+            habilitada te llega un enlace para crear tu contraseña, y desde ahí entrás con
+            <em>Ingresar</em>.</div></li>
           <li><span>2</span><div><strong>Dibujás el lote</strong> en el mapa (o subís un KML o
             shapefile) y cargás la fecha de siembra y el umbral de riego.</div></li>
           <li><span>3</span><div><strong>En menos de una hora</strong> tenés la campaña calculada
@@ -561,11 +592,36 @@ nav.secciones button[aria-selected="true"]{border-bottom-color:var(--trigo)}
       <p class="p-marca p-marca-oscura">Agrobot</p>
       <h1>Tu pedido está en revisión</h1>
       <p class="subtitulo">Ya tenés cuenta en Agrobot (<span id="pend-email"></span>). Falta que la
-        habiliten: te llega un correo cuando esté lista, y ahí podés cargar tus lotes.</p>
+        habiliten: te llega un correo con un enlace para crear tu contraseña, y ahí podés cargar
+        tus lotes.</p>
       <div class="acciones" style="margin-top:18px">
         <button id="btn-pend-actualizar" class="principal">Ya me avisaron: actualizar</button>
         <button id="btn-pend-salir">Salir</button>
       </div>
+    </div>
+  </div>
+
+  <!-- ======================= CREAR CONTRASEÑA ======================= -->
+  <!-- Se llega desde el enlace del correo de aprobación o de "¿Te olvidaste la contraseña?" -->
+  <div id="pantalla-clave" class="p-pendiente oculto">
+    <div class="p-pendiente-tarjeta">
+      <p class="p-marca p-marca-oscura">Agrobot</p>
+      <h1>Creá tu contraseña</h1>
+      <p class="subtitulo">Para <strong id="clave-email"></strong>. Con tu correo y esta contraseña
+        vas a entrar desde la pestaña <em>Ingresar</em>.</p>
+      <form id="form-clave" style="margin-top:14px">
+        <div class="campo">
+          <label for="f-clave-nueva">Contraseña nueva</label>
+          <input type="password" id="f-clave-nueva" required minlength="8" autocomplete="new-password">
+          <span class="pista">Al menos 8 caracteres</span>
+        </div>
+        <div class="campo" style="margin-top:10px">
+          <label for="f-clave-repetida">Repetila</label>
+          <input type="password" id="f-clave-repetida" required minlength="8" autocomplete="new-password">
+        </div>
+        <button class="principal" type="submit" style="margin-top:14px">Guardar y entrar</button>
+      </form>
+      <div id="aviso-clave" class="aviso oculto"></div>
     </div>
   </div>
 
@@ -987,8 +1043,8 @@ nav.secciones button[aria-selected="true"]{border-bottom-color:var(--trigo)}
       <div style="overflow-x:auto"><table id="u-tabla"></table></div>
       <div id="u-aviso" class="aviso oculto"></div>
       <p class="pista" style="margin-top:12px;font-size:12.5px;color:var(--tinta-suave)">
-        Al aprobar una cuenta, el usuario recibe un correo avisándole que ya puede entrar (sale en
-        la corrida siguiente, dentro de la hora). Quitar el acceso no borra sus lotes: dejan de
+        Al aprobar una cuenta, el usuario recibe un correo con un enlace para crear su contraseña
+        (sale en la corrida siguiente, dentro de la hora). Quitar el acceso no borra sus lotes: dejan de
         calcularse y el usuario ya no puede modificarlos.
       </p>
     </div>
@@ -1000,6 +1056,14 @@ nav.secciones button[aria-selected="true"]{border-bottom-color:var(--trigo)}
       <h2>Avisos y consultas por Telegram</h2>
       <p class="subtitulo">Vinculá tu Telegram para recibir los avisos de riego de tus lotes
         y preguntarle al bot por ellos. El bot solo responde sobre los lotes de tu cuenta.</p>
+      <div id="tg-bienvenida" class="aviso ok oculto"><strong>Último paso: vinculá tu Telegram.</strong>
+        Ya generamos tu código: tocá el enlace de abajo desde el celular. Si preferís hacerlo después,
+        lo encontrás siempre acá, en la pestaña Cuenta.</div>
+      <p class="pista" style="max-width:62ch">¿No tenés Telegram? Es gratis y se instala en un minuto:
+        <a href="https://play.google.com/store/apps/details?id=org.telegram.messenger" target="_blank" rel="noopener">Android</a>,
+        <a href="https://apps.apple.com/app/telegram-messenger/id686449807" target="_blank" rel="noopener">iPhone</a> o
+        <a href="https://desktop.telegram.org/" target="_blank" rel="noopener">computadora</a>.
+        Creás tu cuenta con tu número de teléfono y después volvés acá a vincularlo.</p>
       <div id="tg-estado" class="aviso"></div>
       <div class="acciones" style="max-width:520px;margin-top:14px">
         <button id="btn-codigo" class="principal">Vincular Telegram</button>
@@ -1019,6 +1083,25 @@ nav.secciones button[aria-selected="true"]{border-bottom-color:var(--trigo)}
         <button id="btn-mi-nombre">Guardar nombre</button>
         <button id="btn-salir2">Cerrar sesión</button>
       </div>
+    </div>
+
+    <div class="panel" style="margin-top:22px">
+      <h2>Cambiar la contraseña</h2>
+      <form id="form-cambiar-clave" style="max-width:520px">
+        <div class="campo">
+          <label for="f-cc-nueva">Contraseña nueva</label>
+          <input type="password" id="f-cc-nueva" required minlength="8" autocomplete="new-password">
+          <span class="pista">Al menos 8 caracteres</span>
+        </div>
+        <div class="campo" style="margin-top:10px">
+          <label for="f-cc-repetida">Repetila</label>
+          <input type="password" id="f-cc-repetida" required minlength="8" autocomplete="new-password">
+        </div>
+        <div class="acciones" style="margin-top:14px">
+          <button class="principal" type="submit">Cambiar contraseña</button>
+        </div>
+      </form>
+      <div id="aviso-cambiar-clave" class="aviso oculto"></div>
     </div>
   </section>
 
@@ -1955,6 +2038,10 @@ function anotar(texto, clase='info'){
 // La clave anon de config.js es pública por diseño: lo que impide ver lotes
 // ajenos son las políticas de Row Level Security de supabase/schema.sql.
 const CFG = window.AGROBOT || {};
+// Se lee antes de crear el cliente, que limpia la dirección al procesarla.
+// type=recovery: viene del enlace para crear la contraseña (aprobación u olvido).
+const HASH_INICIAL = new URLSearchParams(location.hash.slice(1));
+let CREANDO_CLAVE = HASH_INICIAL.get('type') === 'recovery';
 const sb = (window.supabase && CFG.supabaseUrl && CFG.supabaseAnonKey)
   ? window.supabase.createClient(CFG.supabaseUrl, CFG.supabaseAnonKey) : null;
 
@@ -1966,6 +2053,7 @@ const CLAVE_LOTE = 'bh_lote_elegido';
 function mostrarPantalla(cual){
   document.getElementById('pantalla-login').classList.toggle('oculto', cual !== 'login');
   document.getElementById('pantalla-pendiente').classList.toggle('oculto', cual !== 'pendiente');
+  document.getElementById('pantalla-clave').classList.toggle('oculto', cual !== 'clave');
   document.getElementById('app').classList.toggle('oculto', cual !== 'app');
 }
 
@@ -1986,13 +2074,116 @@ document.getElementById('form-login').addEventListener('submit', async ev => {
   const datos = {};
   [['nombre', 'f-reg-nombre'], ['organizacion', 'f-reg-org'], ['motivo', 'f-reg-motivo']]
     .forEach(([k, id]) => { const v = document.getElementById(id).value.trim(); if(v) datos[k] = v; });
-  const {error} = await sb.auth.signInWithOtp({
-    email, options: {emailRedirectTo: location.origin + location.pathname, data: datos}
+  // La cuenta se crea con una contraseña al azar que nadie conoce: la de
+  // verdad la crea el usuario con el enlace que le llega al ser aprobado.
+  const azar = new Uint8Array(24);
+  crypto.getRandomValues(azar);
+  const provisoria = btoa(String.fromCharCode(...azar)) + 'aA1!';
+  const {data, error} = await sb.auth.signUp({
+    email, password: provisoria,
+    options: {emailRedirectTo: location.origin + location.pathname, data: datos}
   });
   btn.disabled = false;
-  if(error) avisoLogin('No se pudo enviar el enlace: ' + error.message, 'error');
-  else avisoLogin('Listo. Te mandamos un enlace a <strong>' + email + '</strong>: ' +
-                  'abrilo desde este mismo navegador para entrar.', 'ok');
+  if(error && /already registered/i.test(error.message)){
+    avisoLogin('Ese correo ya tiene cuenta. Entrá desde <strong>Ingresar</strong>; si nunca ' +
+               'creaste una contraseña, usá “¿Te olvidaste la contraseña?”.', 'error');
+  } else if(error){
+    avisoLogin('No se pudo enviar el pedido: ' + esc(error.message), 'error');
+  } else if(!data.session){
+    // Con la confirmación de correo activada en Supabase llega un mensaje para confirmarlo
+    avisoLogin('Listo, recibimos tu pedido. Te mandamos un correo a <strong>' + esc(email) +
+               '</strong> para confirmar la dirección. Cuando habiliten tu cuenta te llega otro ' +
+               'con el enlace para crear tu contraseña.', 'ok');
+  }
+});
+
+// --- pestañas Ingresar / Pedir acceso ---
+const CLAVE_YA_INGRESO = 'bh_ya_ingreso';
+function pestanaAcceso(cual){
+  document.querySelectorAll('[data-acceso]').forEach(b =>
+    b.setAttribute('aria-selected', String(b.dataset.acceso === cual)));
+  document.getElementById('acceso-ingresar').classList.toggle('oculto', cual !== 'ingresar');
+  document.getElementById('acceso-pedir').classList.toggle('oculto', cual !== 'pedir');
+  document.getElementById('aviso-login').className = 'aviso oculto';
+}
+document.querySelectorAll('[data-acceso]').forEach(b =>
+  b.addEventListener('click', () => pestanaAcceso(b.dataset.acceso)));
+// Quien ya entró alguna vez desde este navegador ve primero "Ingresar"
+try { if(localStorage.getItem(CLAVE_YA_INGRESO)) pestanaAcceso('ingresar'); } catch {}
+
+document.getElementById('form-ingresar').addEventListener('submit', async ev => {
+  ev.preventDefault();
+  if(!sb) return;
+  const btn = ev.target.querySelector('button');
+  btn.disabled = true;
+  const {error} = await sb.auth.signInWithPassword({
+    email: document.getElementById('f-ing-email').value.trim(),
+    password: document.getElementById('f-ing-clave').value,
+  });
+  btn.disabled = false;
+  if(!error) return;          // onAuthStateChange se encarga de entrar
+  if(/invalid login credentials/i.test(error.message))
+    avisoLogin('Correo o contraseña incorrectos. Si todavía no creaste tu contraseña, usá ' +
+               '“¿Te olvidaste la contraseña?”.', 'error');
+  else if(/not confirmed/i.test(error.message))
+    avisoLogin('Tu cuenta todavía no está habilitada. Te avisamos por correo cuando lo esté.', 'error');
+  else avisoLogin('No se pudo ingresar: ' + esc(error.message), 'error');
+});
+
+document.getElementById('btn-olvide').addEventListener('click', async () => {
+  const email = document.getElementById('f-ing-email').value.trim();
+  if(!email){
+    avisoLogin('Escribí tu correo arriba y volvé a tocar “¿Te olvidaste la contraseña?”.', 'error');
+    document.getElementById('f-ing-email').focus();
+    return;
+  }
+  const {error} = await sb.auth.resetPasswordForEmail(email,
+    {redirectTo: location.origin + location.pathname});
+  if(error) avisoLogin('No se pudo enviar el correo: ' + esc(error.message), 'error');
+  else avisoLogin('Si <strong>' + esc(email) + '</strong> tiene cuenta, te llega un correo con ' +
+                  'un enlace para crear una contraseña nueva.', 'ok');
+});
+
+// --- crear o cambiar la contraseña ---
+async function guardarClave(idNueva, idRepetida, aviso){
+  const nueva = document.getElementById(idNueva).value;
+  const mostrar = (texto, clase) => { aviso.className = 'aviso ' + clase; aviso.innerHTML = texto; };
+  if(nueva.length < 8){ mostrar('La contraseña tiene que tener al menos 8 caracteres.', 'error'); return false; }
+  if(nueva !== document.getElementById(idRepetida).value){
+    mostrar('Las dos contraseñas no coinciden.', 'error'); return false;
+  }
+  const {error} = await sb.auth.updateUser({password: nueva});
+  if(error){
+    mostrar(/different from the old/i.test(error.message)
+      ? 'Es la misma contraseña que ya tenías: elegí otra.'
+      : 'No se pudo guardar: ' + esc(error.message), 'error');
+    return false;
+  }
+  document.getElementById(idNueva).value = document.getElementById(idRepetida).value = '';
+  mostrar('Contraseña guardada.', 'ok');
+  return true;
+}
+
+function pedirClave(user){
+  USUARIO = user;
+  document.getElementById('clave-email').textContent = user.email || '';
+  mostrarPantalla('clave');
+}
+
+document.getElementById('form-clave').addEventListener('submit', async ev => {
+  ev.preventDefault();
+  const btn = ev.target.querySelector('button');
+  btn.disabled = true;
+  const ok = await guardarClave('f-clave-nueva', 'f-clave-repetida', document.getElementById('aviso-clave'));
+  btn.disabled = false;
+  if(!ok) return;
+  CREANDO_CLAVE = false;
+  await entrar(USUARIO, {bienvenida: true});
+});
+
+document.getElementById('form-cambiar-clave').addEventListener('submit', async ev => {
+  ev.preventDefault();
+  await guardarClave('f-cc-nueva', 'f-cc-repetida', document.getElementById('aviso-cambiar-clave'));
 });
 
 async function salir(){
@@ -2003,8 +2194,10 @@ async function salir(){
 document.getElementById('btn-salir').addEventListener('click', salir);
 document.getElementById('btn-salir2').addEventListener('click', salir);
 
-async function entrar(user){
+// bienvenida: recién creó su contraseña desde el enlace del correo
+async function entrar(user, {bienvenida = false} = {}){
   USUARIO = user;
+  try { localStorage.setItem(CLAVE_YA_INGRESO, '1'); } catch {}
   document.getElementById('usuario-email').textContent = user.email || '';
   const {data: acceso} = await sb.from('perfiles').select('aprobado, es_admin').maybeSingle();
   if(!acceso || !acceso.aprobado){
@@ -2017,10 +2210,16 @@ async function entrar(user){
     document.getElementById('tab-usuarios').classList.remove('oculto');
     cargarUsuarios();
   }
-  await Promise.all([cargarPerfil(), cargarLotes()]);
+  const [vinculado] = await Promise.all([cargarPerfil(), cargarLotes()]);
   // El correo de aviso de pedidos trae este enlace directo
   if(acceso.es_admin && location.hash === '#usuarios'){
     document.getElementById('tab-usuarios').click();
+  }
+  // Primera vez sin Telegram: a la pestaña Cuenta, con el código ya generado
+  if(bienvenida && !vinculado){
+    document.querySelector('nav.secciones [data-seccion="cuenta"]').click();
+    document.getElementById('tg-bienvenida').classList.remove('oculto');
+    document.getElementById('btn-codigo').click();
   }
 }
 
@@ -2066,7 +2265,7 @@ document.getElementById('u-tabla').addEventListener('click', async ev => {
   ev.target.disabled = true;
   const {error} = await sb.rpc('aprobar_usuario', {p_id: id, p_aprobado: aprobar});
   if(error){ avisoUsuarios('No se pudo: ' + error.message, 'error'); ev.target.disabled = false; return; }
-  avisoUsuarios(aprobar ? 'Cuenta habilitada. El usuario recibe el aviso por correo dentro de la hora.'
+  avisoUsuarios(aprobar ? 'Cuenta habilitada. Dentro de la hora le llega un correo con el enlace para crear su contraseña.'
                         : 'Acceso quitado.', 'ok');
   cargarUsuarios();
 });
@@ -2075,16 +2274,30 @@ document.getElementById('u-tabla').addEventListener('click', async ev => {
   if(!sb){
     mostrarPantalla('login');
     document.getElementById('form-login').classList.add('oculto');
+    document.getElementById('form-ingresar').classList.add('oculto');
     avisoLogin('Falta configurar la conexión con Supabase en <code>docs/config.js</code> ' +
                '(ver SUPABASE.md).', 'error');
     return;
   }
   // Las llamadas a Supabase no se hacen dentro del callback: la librería
   // puede quedar trabada esperando su propio bloqueo de sesión.
-  sb.auth.onAuthStateChange((_evento, sesion) => {
-    if(sesion && !USUARIO) setTimeout(() => entrar(sesion.user), 0);
+  sb.auth.onAuthStateChange((evento, sesion) => {
+    if(evento === 'PASSWORD_RECOVERY') CREANDO_CLAVE = true;
+    // CREANDO_CLAVE se mira recién al ejecutar: PASSWORD_RECOVERY puede llegar después de SIGNED_IN
+    if(sesion && !USUARIO) setTimeout(() => CREANDO_CLAVE ? pedirClave(sesion.user) : entrar(sesion.user), 0);
     if(!sesion){ USUARIO = null; mostrarPantalla('login'); }
   });
+  // Enlace vencido o ya usado: Supabase vuelve con el error en la dirección.
+  // Diferido: esc() se define más abajo en este mismo script.
+  if(HASH_INICIAL.get('error')) setTimeout(() => {
+    mostrarPantalla('login');
+    pestanaAcceso('ingresar');
+    avisoLogin(/expired|invalid/i.test(HASH_INICIAL.get('error_code') + HASH_INICIAL.get('error_description'))
+      ? 'El enlace venció o ya se usó. Escribí tu correo y tocá “¿Te olvidaste la contraseña?” para recibir uno nuevo.'
+      : 'No se pudo abrir el enlace: ' + esc(HASH_INICIAL.get('error_description') || HASH_INICIAL.get('error')),
+      'error');
+    history.replaceState(null, '', location.pathname);
+  }, 0);
 })();
 
 // ===================== lotes =====================

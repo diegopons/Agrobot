@@ -2040,7 +2040,9 @@ function anotar(texto, clase='info'){
 const CFG = window.AGROBOT || {};
 // Se lee antes de crear el cliente, que limpia la dirección al procesarla.
 // type=recovery: viene del enlace para crear la contraseña (aprobación u olvido).
-const HASH_INICIAL = new URLSearchParams(location.hash.slice(1));
+// Supabase manda los datos después de "#" o después de "?" según el caso
+// (los errores, por ejemplo, suelen venir en "?"), así que se leen los dos.
+const HASH_INICIAL = new URLSearchParams(location.search.slice(1) + '&' + location.hash.slice(1));
 let CREANDO_CLAVE = HASH_INICIAL.get('type') === 'recovery';
 const sb = (window.supabase && CFG.supabaseUrl && CFG.supabaseAnonKey)
   ? window.supabase.createClient(CFG.supabaseUrl, CFG.supabaseAnonKey) : null;
@@ -2293,18 +2295,32 @@ document.getElementById('u-tabla').addEventListener('click', async ev => {
     if(sesion && !USUARIO) setTimeout(() => CREANDO_CLAVE ? pedirClave(sesion.user) : entrar(sesion.user), 0);
     if(!sesion){ USUARIO = null; mostrarPantalla('login'); }
   });
+  // Plantillas de correo con token_hash ({{ .TokenHash }}): la librería no las
+  // procesa sola, se canjea acá. La sesión llega por onAuthStateChange.
+  const tokenHash = HASH_INICIAL.get('token_hash');
+  if(tokenHash){
+    history.replaceState(null, '', location.pathname);
+    sb.auth.verifyOtp({token_hash: tokenHash, type: HASH_INICIAL.get('type') || 'email'})
+      .then(({error}) => { if(error) enlaceVencido(error.message); });
+  }
   // Enlace vencido o ya usado: Supabase vuelve con el error en la dirección.
   // Diferido: esc() se define más abajo en este mismo script.
   if(HASH_INICIAL.get('error')) setTimeout(() => {
-    mostrarPantalla('login');
-    pestanaAcceso('ingresar');
-    avisoLogin(/expired|invalid/i.test(HASH_INICIAL.get('error_code') + HASH_INICIAL.get('error_description'))
-      ? 'El enlace venció o ya se usó. Escribí tu correo y tocá “¿Te olvidaste la contraseña?” para recibir uno nuevo.'
-      : 'No se pudo abrir el enlace: ' + esc(HASH_INICIAL.get('error_description') || HASH_INICIAL.get('error')),
-      'error');
+    enlaceVencido(HASH_INICIAL.get('error_code') + ' ' +
+                  (HASH_INICIAL.get('error_description') || HASH_INICIAL.get('error')));
     history.replaceState(null, '', location.pathname);
   }, 0);
 })();
+
+function enlaceVencido(detalle){
+  CREANDO_CLAVE = false;
+  mostrarPantalla('login');
+  pestanaAcceso('ingresar');
+  avisoLogin(/expired|invalid|not found/i.test(detalle)
+    ? 'El enlace venció o ya se usó (a veces lo “abre” antes el antivirus del correo). Escribí tu ' +
+      'correo y tocá “¿Te olvidaste la contraseña?” para recibir uno nuevo.'
+    : 'No se pudo abrir el enlace: ' + esc(detalle), 'error');
+}
 
 // ===================== lotes =====================
 const estadoDe = l => l ? (Array.isArray(l.estado_lote) ? l.estado_lote[0] : l.estado_lote) || null : null;

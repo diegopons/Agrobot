@@ -386,17 +386,20 @@ class ClienteSupabase:
     def enlace_para_crear_clave(self, usuario_id: str, email: str, volver_a: str) -> str:
         """Enlace de un solo uso para que el usuario cree su contraseña.
 
-        Supabase lo genera sin mandar correo: el correo lo manda avisos_admin.
+        Supabase genera el código sin mandar correo: el correo lo manda
+        avisos_admin. El enlace va directo al tablero con el código
+        (?token_hash=...), no al /verify de Supabase: así no lo gasta el escáner
+        de enlaces del correo, y el tablero lo canjea recién al guardar.
         Antes se confirma la dirección, porque el pedido pudo quedar sin
         confirmar; el enlace llega a esa misma dirección, así que la prueba igual.
         """
         self._pedir("PUT", f"{self.auth}/admin/users/{usuario_id}", json={"email_confirm": True})
         r = self._pedir("POST", f"{self.auth}/admin/generate_link",
                         json={"type": "recovery", "email": email, "redirect_to": volver_a}).json()
-        enlace = r.get("action_link") or (r.get("properties") or {}).get("action_link")
-        if not enlace:
-            raise ErrorSupabase(f"generate_link no devolvió el enlace para {email}")
-        return enlace
+        codigo = r.get("hashed_token") or (r.get("properties") or {}).get("hashed_token")
+        if not codigo:
+            raise ErrorSupabase(f"generate_link no devolvió el código para {email}")
+        return f"{volver_a}?token_hash={codigo}&type=recovery"
 
 
 class AlmacenSupabase:

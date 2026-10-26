@@ -149,7 +149,7 @@ class BaseFalsa:
         if self.auth_falla:
             raise mod_almacen.ErrorSupabase("Auth caído")
         self.enlaces.append((usuario_id, email, volver_a))
-        return f"https://supabase.falso/auth/v1/verify?token=t{len(self.enlaces)}&type=recovery"
+        return f"{volver_a}?token_hash=h{len(self.enlaces)}&type=recovery"
 
 
 def _lote(id_, usuario, nombre, siembra, geometria=CUADRADO, **extra):
@@ -629,11 +629,11 @@ def test_aviso_de_pedidos_de_acceso(entorno, supabase, monkeypatch):
     destino, cuerpo = enviados[1]
     assert destino == "carla@x.com" and "habilitada" in cuerpo
     assert supabase.enlaces == [("u-nuevo", "carla@x.com", "https://diegopons.github.io/Agrobot/")]
-    assert "verify?token=t1&type=recovery" in cuerpo and "Ingresar" in cuerpo
+    assert "Agrobot/?token_hash=h1&type=recovery" in cuerpo and "Ingresar" in cuerpo
     assert next(p for p in supabase.t["perfiles"] if p["id"] == "u-nuevo")["aviso_aprobacion"] is True
     # por Telegram el aviso, sin el enlace (el chat puede ser un grupo)
     tg = [m for c, m in entorno["enviados"] if c == "333"]
-    assert len(tg) == 1 and "habilitada" in tg[0] and "verify" not in tg[0]
+    assert len(tg) == 1 and "habilitada" in tg[0] and "token_hash" not in tg[0]
 
 
 def test_el_suelo_del_config_no_se_hereda(entorno):

@@ -75,10 +75,26 @@ En **Authentication → Sign In / Providers → Email**:
   de fábrica, quien lee el correo al día siguiente lo encuentra vencido (puede
   pedir otro con "¿Te olvidaste la contraseña?").
 
-Conviene traducir en **Authentication → Emails → Templates** los mensajes
-*Confirm signup* (llega al pedir acceso) y *Reset password* (llega con "¿Te
-olvidaste la contraseña?"). El de aprobación no usa plantilla: lo manda la
-corrida diaria.
+En **Authentication → Emails → Templates → Reset password** (llega con "¿Te
+olvidaste la contraseña?") el enlace tiene que ir **directo al tablero con el
+código**, no al `{{ .ConfirmationURL }}` de fábrica:
+
+- Subject: `Creá tu contraseña de Agrobot`
+- Body:
+
+  ```html
+  <h2>Agrobot</h2>
+  <p>Pediste crear una contraseña nueva para entrar a Agrobot.</p>
+  <p><a href="{{ .SiteURL }}?token_hash={{ .TokenHash }}&type=recovery">Crear mi contraseña</a></p>
+  <p>Si no lo pediste, ignorá este correo: tu contraseña no cambia.</p>
+  ```
+
+El enlace de fábrica pasa por Supabase y se gasta al abrirlo: lo gastaba el
+escáner de enlaces del correo, y la sesión que dejaba se perdía con dos
+pestañas abiertas. Con el código, el tablero lo canjea recién al guardar la
+contraseña. El correo de aprobación no usa plantilla (lo manda la corrida
+diaria) y ya arma el enlace así. Conviene traducir también *Confirm signup*,
+que llega al pedir acceso.
 
 > ⚠️ **El correo de Supabase de fábrica solo manda enlaces a los miembros del
 > equipo del proyecto**, y unos pocos por hora. Para que entren otros usuarios

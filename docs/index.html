@@ -2047,6 +2047,10 @@ let CREANDO_CLAVE = HASH_INICIAL.get('type') === 'recovery';
 // Token de la sesión del enlace: de la dirección, o del aviso que la librería
 // les pasa a las otras pestañas abiertas (que también muestran "Creá tu contraseña")
 let TOKEN_ENLACE = HASH_INICIAL.get('access_token');
+// Enlace con código (?token_hash=...&type=recovery): el del correo de
+// aprobación y el de "¿Te olvidaste la contraseña?". Se canjea recién al
+// guardar la contraseña, en esta misma pestaña.
+let TOKEN_HASH = CREANDO_CLAVE ? HASH_INICIAL.get('token_hash') : null;
 const sb = (window.supabase && CFG.supabaseUrl && CFG.supabaseAnonKey)
   ? window.supabase.createClient(CFG.supabaseUrl, CFG.supabaseAnonKey) : null;
 
@@ -2155,9 +2159,26 @@ document.getElementById('btn-olvide').addEventListener('click', async () => {
 // ese caso se guarda directo con el token que trajo la dirección.
 async function cambiarClave(nueva){
   const {error} = await sb.auth.updateUser({password: nueva});
-  const token = TOKEN_ENLACE;
-  if(!error || error.name !== 'AuthSessionMissingError' || !token) return error;
+  if(!error || error.name !== 'AuthSessionMissingError' || !TOKEN_ENLACE) return error;
   console.warn('Agrobot: la librería perdió la sesión del enlace; se guarda con el token de la dirección');
+  return await clavePorToken(nueva, TOKEN_ENLACE);
+}
+
+// Canjea el código del enlace y guarda la contraseña con esa sesión, sin
+// depender de la que guarda la librería. Si el canje salió pero el guardado
+// no, el reintento usa la sesión ya obtenida (el código sirve una sola vez).
+async function clavePorEnlace(nueva){
+  if(TOKEN_HASH){
+    const {data, error} = await sb.auth.verifyOtp({token_hash: TOKEN_HASH, type: 'recovery'});
+    if(error) return {name: 'EnlaceVencido', message: error.message};
+    TOKEN_HASH = null;
+    USUARIO = data.user;
+    TOKEN_ENLACE = data.session && data.session.access_token;
+  }
+  return await clavePorToken(nueva, TOKEN_ENLACE);
+}
+
+async function clavePorToken(nueva, token){
   const r = await fetch(CFG.supabaseUrl.replace(/\/$/, '') + '/auth/v1/user', {
     method: 'PUT',
     headers: {apikey: CFG.supabaseAnonKey, Authorization: 'Bearer ' + token,
@@ -2171,16 +2192,17 @@ async function cambiarClave(nueva){
 }
 
 // Devuelve la contraseña guardada, o null si no se pudo
-async function guardarClave(idNueva, idRepetida, aviso){
+async function guardarClave(idNueva, idRepetida, aviso, guardar = cambiarClave){
   const nueva = document.getElementById(idNueva).value;
   const mostrar = (texto, clase) => { aviso.className = 'aviso ' + clase; aviso.innerHTML = texto; };
   if(nueva.length < 8){ mostrar('La contraseña tiene que tener al menos 8 caracteres.', 'error'); return null; }
   if(nueva !== document.getElementById(idRepetida).value){
     mostrar('Las dos contraseñas no coinciden.', 'error'); return null;
   }
-  const error = await cambiarClave(nueva);
+  const error = await guardar(nueva);
   if(error){
-    if(error.name === 'AuthSessionMissingError')
+    if(error.name === 'EnlaceVencido') enlaceVencido(error.message);
+    else if(error.name === 'AuthSessionMissingError')
       mostrar('La sesión de este enlace se cerró (por ejemplo, al tocar “Salir” en otra pestaña). ' +
               'Pedí un enlace nuevo: <a href="' + location.pathname + '">volvé a la portada</a>, ' +
               'pestaña Ingresar → “¿Te olvidaste la contraseña?”.', 'error');
@@ -2205,7 +2227,8 @@ document.getElementById('form-clave').addEventListener('submit', async ev => {
   const btn = ev.target.querySelector('button');
   btn.disabled = true;
   const aviso = document.getElementById('aviso-clave');
-  const nueva = await guardarClave('f-clave-nueva', 'f-clave-repetida', aviso);
+  const nueva = await guardarClave('f-clave-nueva', 'f-clave-repetida', aviso,
+                                   TOKEN_HASH || !USUARIO ? clavePorEnlace : cambiarClave);
   if(!nueva){ btn.disabled = false; return; }
   CREANDO_CLAVE = false;
   // Si se guardó por fuera de la librería, se entra con la contraseña recién creada
@@ -2331,15 +2354,13 @@ document.getElementById('u-tabla').addEventListener('click', async ev => {
     if(CREANDO_CLAVE && sesion && sesion.access_token) TOKEN_ENLACE = sesion.access_token;
     // CREANDO_CLAVE se mira recién al ejecutar: PASSWORD_RECOVERY puede llegar después de SIGNED_IN
     if(sesion && !USUARIO) setTimeout(() => CREANDO_CLAVE ? pedirClave(sesion.user) : entrar(sesion.user), 0);
-    if(!sesion){ USUARIO = null; mostrarPantalla('login'); }
+    // Con un código pendiente de canjear no hay sesión todavía: se queda en "Creá tu contraseña"
+    if(!sesion){ USUARIO = null; if(!TOKEN_HASH) mostrarPantalla('login'); }
   });
-  // Plantillas de correo con token_hash ({{ .TokenHash }}): la librería no las
-  // procesa sola, se canjea acá. La sesión llega por onAuthStateChange.
-  const tokenHash = HASH_INICIAL.get('token_hash');
-  if(tokenHash){
+  if(TOKEN_HASH){
     history.replaceState(null, '', location.pathname);
-    sb.auth.verifyOtp({token_hash: tokenHash, type: HASH_INICIAL.get('type') || 'email'})
-      .then(({error}) => { if(error) enlaceVencido(error.message); });
+    document.getElementById('clave-email').textContent = 'tu cuenta';
+    mostrarPantalla('clave');
   }
   // Enlace vencido o ya usado: Supabase vuelve con el error en la dirección.
   // Diferido: esc() se define más abajo en este mismo script.
@@ -2352,6 +2373,7 @@ document.getElementById('u-tabla').addEventListener('click', async ev => {
 
 function enlaceVencido(detalle){
   CREANDO_CLAVE = false;
+  TOKEN_HASH = null;
   mostrarPantalla('login');
   pestanaAcceso('ingresar');
   avisoLogin(/expired|invalid|not found/i.test(detalle)

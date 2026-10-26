@@ -2147,14 +2147,35 @@ document.getElementById('btn-olvide').addEventListener('click', async () => {
 });
 
 // --- crear o cambiar la contraseña ---
+// Con el enlace del correo, la librería a veces no encuentra la sesión al
+// guardar ("Auth session missing!" sin que el pedido llegue a Supabase). En
+// ese caso se guarda directo con el token que trajo la dirección.
+async function cambiarClave(nueva){
+  const {error} = await sb.auth.updateUser({password: nueva});
+  const token = HASH_INICIAL.get('access_token');
+  if(!error || error.name !== 'AuthSessionMissingError' || !token) return error;
+  console.warn('Agrobot: la librería perdió la sesión del enlace; se guarda con el token de la dirección');
+  const r = await fetch(CFG.supabaseUrl.replace(/\/$/, '') + '/auth/v1/user', {
+    method: 'PUT',
+    headers: {apikey: CFG.supabaseAnonKey, Authorization: 'Bearer ' + token,
+              'Content-Type': 'application/json'},
+    body: JSON.stringify({password: nueva}),
+  });
+  if(r.ok) return null;
+  const cuerpo = await r.json().catch(() => ({}));
+  return {name: r.status === 403 && cuerpo.error_code === 'session_not_found' ? 'AuthSessionMissingError' : 'AuthApiError',
+          message: cuerpo.msg || cuerpo.message || cuerpo.error_description || ('HTTP ' + r.status)};
+}
+
+// Devuelve la contraseña guardada, o null si no se pudo
 async function guardarClave(idNueva, idRepetida, aviso){
   const nueva = document.getElementById(idNueva).value;
   const mostrar = (texto, clase) => { aviso.className = 'aviso ' + clase; aviso.innerHTML = texto; };
-  if(nueva.length < 8){ mostrar('La contraseña tiene que tener al menos 8 caracteres.', 'error'); return false; }
+  if(nueva.length < 8){ mostrar('La contraseña tiene que tener al menos 8 caracteres.', 'error'); return null; }
   if(nueva !== document.getElementById(idRepetida).value){
-    mostrar('Las dos contraseñas no coinciden.', 'error'); return false;
+    mostrar('Las dos contraseñas no coinciden.', 'error'); return null;
   }
-  const {error} = await sb.auth.updateUser({password: nueva});
+  const error = await cambiarClave(nueva);
   if(error){
     if(error.name === 'AuthSessionMissingError')
       mostrar('La sesión de este enlace se cerró (por ejemplo, al tocar “Salir” en otra pestaña). ' +
@@ -2163,11 +2184,11 @@ async function guardarClave(idNueva, idRepetida, aviso){
     else mostrar(/different from the old/i.test(error.message)
       ? 'Es la misma contraseña que ya tenías: elegí otra.'
       : 'No se pudo guardar: ' + esc(error.message), 'error');
-    return false;
+    return null;
   }
   document.getElementById(idNueva).value = document.getElementById(idRepetida).value = '';
   mostrar('Contraseña guardada.', 'ok');
-  return true;
+  return nueva;
 }
 
 function pedirClave(user){
@@ -2180,10 +2201,23 @@ document.getElementById('form-clave').addEventListener('submit', async ev => {
   ev.preventDefault();
   const btn = ev.target.querySelector('button');
   btn.disabled = true;
-  const ok = await guardarClave('f-clave-nueva', 'f-clave-repetida', document.getElementById('aviso-clave'));
-  btn.disabled = false;
-  if(!ok) return;
+  const aviso = document.getElementById('aviso-clave');
+  const nueva = await guardarClave('f-clave-nueva', 'f-clave-repetida', aviso);
+  if(!nueva){ btn.disabled = false; return; }
   CREANDO_CLAVE = false;
+  // Si se guardó por fuera de la librería, se entra con la contraseña recién creada
+  const {data: {session}} = await sb.auth.getSession();
+  if(!session){
+    const {error} = await sb.auth.signInWithPassword({email: USUARIO.email, password: nueva});
+    if(error){
+      btn.disabled = false;
+      aviso.className = 'aviso error';
+      aviso.innerHTML = 'La contraseña quedó guardada, pero no se pudo entrar: ' + esc(error.message) +
+        '. <a href="' + location.pathname + '">Volvé a la portada</a> y entrá desde Ingresar.';
+      return;
+    }
+  }
+  btn.disabled = false;
   await entrar(USUARIO, {bienvenida: true});
 });
 

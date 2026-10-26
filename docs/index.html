@@ -2350,12 +2350,14 @@ document.getElementById('u-tabla').addEventListener('click', async ev => {
   // Las llamadas a Supabase no se hacen dentro del callback: la librería
   // puede quedar trabada esperando su propio bloqueo de sesión.
   sb.auth.onAuthStateChange((evento, sesion) => {
-    if(evento === 'PASSWORD_RECOVERY') CREANDO_CLAVE = true;
+    // "Creá tu contraseña" solo en la pestaña donde se abrió el enlace: la
+    // librería avisa el ingreso a todas las pestañas abiertas, y las demás entran normal.
     if(CREANDO_CLAVE && sesion && sesion.access_token) TOKEN_ENLACE = sesion.access_token;
     // CREANDO_CLAVE se mira recién al ejecutar: PASSWORD_RECOVERY puede llegar después de SIGNED_IN
     if(sesion && !USUARIO) setTimeout(() => CREANDO_CLAVE ? pedirClave(sesion.user) : entrar(sesion.user), 0);
     // Con un código pendiente de canjear no hay sesión todavía: se queda en "Creá tu contraseña"
-    if(!sesion){ USUARIO = null; if(!TOKEN_HASH) mostrarPantalla('login'); }
+    // Al cerrarse la sesión, el enlace de esta pestaña ya no cuenta (salvo un código sin canjear)
+    if(!sesion){ USUARIO = null; if(!TOKEN_HASH){ CREANDO_CLAVE = false; mostrarPantalla('login'); } }
   });
   if(TOKEN_HASH){
     history.replaceState(null, '', location.pathname);

@@ -33,6 +33,12 @@ de cara al usuario está en castellano rioplatense (voseo).
 - La carta de suelos se consulta una vez por polígono y se guarda; si IDECOR falla,
   perfil por defecto y reintento, sin guardar.
 - El valor de los índices es la mediana (los cocientes se disparan en suelo desnudo).
+- Ingreso con contraseña (2026-10-26). La sesión del tablero se guarda con clave propia
+  (`agrobot-sesion`) **y en memoria**: en el Chrome del usuario una extensión borraba
+  localStorage al segundo de ingresar. Los enlaces para crear la contraseña van directo
+  al tablero con `?token_hash=...&type=recovery` y se canjean al guardar (el `/verify` de
+  fábrica lo gastaba el escáner del correo). Por eso la plantilla *Reset password* de
+  Supabase usa `{{ .SiteURL }}?token_hash={{ .TokenHash }}&type=recovery` (ver SUPABASE.md).
 
 ## Trabajo con el usuario
 

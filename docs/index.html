@@ -2154,7 +2154,11 @@ async function guardarClave(idNueva, idRepetida, aviso){
   }
   const {error} = await sb.auth.updateUser({password: nueva});
   if(error){
-    mostrar(/different from the old/i.test(error.message)
+    if(error.name === 'AuthSessionMissingError')
+      mostrar('La sesión de este enlace se cerró (por ejemplo, al tocar “Salir” en otra pestaña). ' +
+              'Pedí un enlace nuevo: <a href="' + location.pathname + '">volvé a la portada</a>, ' +
+              'pestaña Ingresar → “¿Te olvidaste la contraseña?”.', 'error');
+    else mostrar(/different from the old/i.test(error.message)
       ? 'Es la misma contraseña que ya tenías: elegí otra.'
       : 'No se pudo guardar: ' + esc(error.message), 'error');
     return false;
@@ -2187,7 +2191,9 @@ document.getElementById('form-cambiar-clave').addEventListener('submit', async e
 });
 
 async function salir(){
-  await sb.auth.signOut();
+  // Solo este navegador: el global cerraría también, por ejemplo, la sesión
+  // que abrió el enlace para crear la contraseña en otra pestaña.
+  await sb.auth.signOut({scope: 'local'});
   try { localStorage.removeItem(CLAVE_LOTE); } catch {}
   location.reload();
 }

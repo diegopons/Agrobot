@@ -2267,7 +2267,19 @@ async function entrar(user, {bienvenida = false} = {}){
   USUARIO = user;
   try { localStorage.setItem(CLAVE_YA_INGRESO, '1'); } catch {}
   document.getElementById('usuario-email').textContent = user.email || '';
-  const {data: acceso} = await sb.from('perfiles').select('aprobado, es_admin').maybeSingle();
+  const {data: acceso, error: errorAcceso} = await sb.from('perfiles').select('aprobado, es_admin').maybeSingle();
+  // Sin perfil puede ser que la consulta salió sin la sesión: no es lo mismo que
+  // "no aprobado", así que se dice qué pasó en lugar de mostrar "en revisión".
+  const {data: {session: sesionActual}} = await sb.auth.getSession();
+  if(errorAcceso || !sesionActual){
+    console.warn('Agrobot: no se pudo leer el perfil', errorAcceso, 'sesión:', !!sesionActual);
+    USUARIO = null;
+    mostrarPantalla('login');
+    pestanaAcceso('ingresar');
+    avisoLogin('No se pudo abrir tu cuenta' + (errorAcceso ? ': ' + esc(errorAcceso.message) : ' (se perdió la sesión)') +
+               '. Volvé a ingresar con tu correo y contraseña.', 'error');
+    return;
+  }
   if(!acceso || !acceso.aprobado){
     document.getElementById('pend-email').textContent = user.email || '';
     mostrarPantalla('pendiente');

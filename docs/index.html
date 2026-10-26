@@ -2044,6 +2044,9 @@ const CFG = window.AGROBOT || {};
 // (los errores, por ejemplo, suelen venir en "?"), así que se leen los dos.
 const HASH_INICIAL = new URLSearchParams(location.search.slice(1) + '&' + location.hash.slice(1));
 let CREANDO_CLAVE = HASH_INICIAL.get('type') === 'recovery';
+// Token de la sesión del enlace: de la dirección, o del aviso que la librería
+// les pasa a las otras pestañas abiertas (que también muestran "Creá tu contraseña")
+let TOKEN_ENLACE = HASH_INICIAL.get('access_token');
 const sb = (window.supabase && CFG.supabaseUrl && CFG.supabaseAnonKey)
   ? window.supabase.createClient(CFG.supabaseUrl, CFG.supabaseAnonKey) : null;
 
@@ -2152,7 +2155,7 @@ document.getElementById('btn-olvide').addEventListener('click', async () => {
 // ese caso se guarda directo con el token que trajo la dirección.
 async function cambiarClave(nueva){
   const {error} = await sb.auth.updateUser({password: nueva});
-  const token = HASH_INICIAL.get('access_token');
+  const token = TOKEN_ENLACE;
   if(!error || error.name !== 'AuthSessionMissingError' || !token) return error;
   console.warn('Agrobot: la librería perdió la sesión del enlace; se guarda con el token de la dirección');
   const r = await fetch(CFG.supabaseUrl.replace(/\/$/, '') + '/auth/v1/user', {
@@ -2325,6 +2328,7 @@ document.getElementById('u-tabla').addEventListener('click', async ev => {
   // puede quedar trabada esperando su propio bloqueo de sesión.
   sb.auth.onAuthStateChange((evento, sesion) => {
     if(evento === 'PASSWORD_RECOVERY') CREANDO_CLAVE = true;
+    if(CREANDO_CLAVE && sesion && sesion.access_token) TOKEN_ENLACE = sesion.access_token;
     // CREANDO_CLAVE se mira recién al ejecutar: PASSWORD_RECOVERY puede llegar después de SIGNED_IN
     if(sesion && !USUARIO) setTimeout(() => CREANDO_CLAVE ? pedirClave(sesion.user) : entrar(sesion.user), 0);
     if(!sesion){ USUARIO = null; mostrarPantalla('login'); }

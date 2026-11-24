@@ -4,7 +4,7 @@
 > resultados en el repositorio: los escribe en Supabase. Los Secrets
 > necesarios son `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`,
 > `CDSE_CLIENT_ID`, `CDSE_CLIENT_SECRET` y `TELEGRAM_BOT_TOKEN`
-> (`TELEGRAM_CHAT_ID` ya no se usa). Corre a las 06:00 para todos los lotes
+> (`TELEGRAM_CHAT_ID` ya no se usa). Corre a las 06:17 para todos los lotes
 > y cada hora para los lotes nuevos o modificados, y el formulario de
 > «Run workflow» pide el id de un lote en lugar de los parámetros de inicio,
 > que ahora se cargan en el tablero. Ver [SUPABASE.md](SUPABASE.md). El resto
@@ -106,13 +106,13 @@ No esperes al horario automático. Probalo ya:
 
 ## Paso 5 — Ajustar el horario
 
-Ya está programado para correr **todos los días a las 06:00 de Argentina**.
+Ya está programado para correr **todos los días a las 06:17 de Argentina**.
 Si querés cambiarlo, editá en `.github/workflows/balance_hidrico.yml` la
 línea del `cron` (recordá: **se escribe en horario UTC**, Argentina es UTC-3,
 así que sumale 3 horas a la hora que querés).
 
 ```yaml
-- cron: "0 9 * * *"     # todos los días 09:00 UTC = 06:00 Argentina
+- cron: "17 9 * * *"    # todos los días 09:17 UTC = 06:17 Argentina
 - cron: "0 9 */3 * *"   # cada 3 días
 - cron: "0 9 * * 1"     # todos los lunes
 ```

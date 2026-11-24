@@ -20,7 +20,7 @@ Usuario ──login──> Tablero (GitHub Pages)  ── ve y edita solo sus lo
                   └──────────────────────────────────────┘
                         ▲                    ▲
      GitHub Actions ────┘                    └──── n8n (bot)
-     06:00 todos los lotes, días nuevos        chat de Telegram → usuario
+     06:17 todos los lotes, días nuevos        chat de Telegram → usuario
      cada hora: lotes nuevos o modificados     → sus lotes
 ```
 
@@ -189,7 +189,7 @@ volver a correr: actualiza el mismo lote.
 
 Mergeá la rama a `main`. Desde ahí:
 
-- **06:00** (Argentina): todos los lotes activos, con los días nuevos.
+- **06:17** (Argentina): todos los lotes activos, con los días nuevos.
 - **Cada hora, a los :30**: solo los lotes nuevos, los modificados desde el
   tablero o los que pidieron recalcular. Un lote recién cargado aparece
   calculado en menos de una hora.

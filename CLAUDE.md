@@ -7,7 +7,7 @@ de cara al usuario está en castellano rioplatense (voseo).
 ## Cómo está armado
 
 - **Corrida** (`python -m src.main`): GitHub Actions, `.github/workflows/balance_hidrico.yml`.
-  06:00 ART todos los lotes; cada hora a los :30 solo lotes nuevos/modificados
+  06:17 ART todos los lotes; cada hora a los :30 solo lotes nuevos/modificados
   (`BH_SOLO_PENDIENTES`). Corrida manual con `lote_id`, `fecha_fin`, `reiniciar_estado`.
 - **Almacén** (`src/almacen.py`): `AlmacenSupabase` (producción) o `AlmacenLocal`
   (un lote de `config.yaml`, modo original). `BH_ALMACEN=supabase` en Actions.
@@ -43,7 +43,7 @@ de cara al usuario está en castellano rioplatense (voseo).
 ## Trabajo con el usuario
 
 - Commit y push a una rama propia después de cada etapa verificada, no al final.
-- Correr `python -m pytest tests -q` antes de cada commit (hoy 41 pruebas).
+- Correr `python -m pytest tests -q` antes de cada commit (hoy 42 pruebas).
 - Las claves no se piden en el chat: van en `.env` local (ignorado por Git) o en
   los Secrets de GitHub. En la PC del usuario, Python necesita `truststore`
   (`truststore.inject_into_ssl()`) por intercepción TLS.

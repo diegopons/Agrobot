@@ -41,6 +41,8 @@ import json
 import logging
 import math
 import re
+import time
+import urllib.error
 import urllib.parse
 import urllib.request
 from typing import Optional
@@ -78,12 +80,30 @@ class ErrorSIGA(RuntimeError):
     """Falla al consultar o interpretar datos del SIGA."""
 
 
-def _pedir(url: str, timeout: int = 90) -> bytes:
-    try:
-        with urllib.request.urlopen(url, timeout=timeout) as r:
-            return r.read()
-    except Exception as exc:
-        raise ErrorSIGA(f"No se pudo consultar el SIGA ({url}): {exc}") from exc
+def _pedir(url: str, timeout: int = 90, esperas: tuple = ()) -> bytes:
+    """GET simple. `esperas`: segundos antes de cada reintento (ninguno por defecto)."""
+    for intento, espera in enumerate((0, *esperas)):
+        if espera:
+            logger.warning("SIGA: reintento %d en %d s (%s).", intento, espera, url)
+            time.sleep(espera)
+        try:
+            with urllib.request.urlopen(url, timeout=timeout) as r:
+                return r.read()
+        except urllib.error.HTTPError as exc:
+            if exc.code < 500 or intento == len(esperas):
+                raise ErrorSIGA(f"No se pudo consultar el SIGA ({url}): {exc}") from exc
+        except Exception as exc:
+            if intento == len(esperas):
+                raise ErrorSIGA(f"No se pudo consultar el SIGA ({url}): {exc}") from exc
+
+
+# La planilla de la estación (~2 MB) baja muy lenta desde los servidores de
+# GitHub (el 24/11/2026 se cortó a los 3,7 min). Se reintenta, y se guarda en
+# memoria durante la corrida: varios lotes cerca de la misma estación la
+# bajan una sola vez.
+ESPERAS_SERIE = (10, 30)
+TIMEOUT_SERIE = 180
+_planillas: dict[str, bytes] = {}
 
 
 # ---------------------------------------------------------------------------
@@ -226,7 +246,9 @@ def _leer_excel(contenido: bytes) -> pd.DataFrame:
 def descargar_serie(id_interno: str) -> pd.DataFrame:
     """Serie diaria completa de la estación, con las columnas normalizadas."""
     url = URL_SERIE.format(id_interno=urllib.parse.quote(id_interno))
-    df = _leer_excel(_pedir(url))
+    if url not in _planillas:
+        _planillas[url] = _pedir(url, timeout=TIMEOUT_SERIE, esperas=ESPERAS_SERIE)
+    df = _leer_excel(_planillas[url])
 
     faltan = [c for c in COL.values() if c not in df.columns]
     if COL["fecha"] in faltan:

@@ -7,9 +7,11 @@ on:
   schedule:
     # OJO: GitHub usa siempre horario UTC. Argentina = UTC-3.
     # 1) Corrida diaria completa: todos los lotes activos de todos los
-    #    usuarios, con los días nuevos. 09:00 UTC = 06:00 en Argentina, cuando
+    #    usuarios, con los días nuevos. 09:17 UTC = 06:17 en Argentina, cuando
     #    la estación del INTA ya consolidó el dato del día.
-    - cron: "0 9 * * *"
+    # A los :17 y no en punto: GitHub demora o saltea los horarios en punto
+    # (el 23/11/2026 la de las 9:00 arrancó a las 20:57 UTC).
+    - cron: "17 9 * * *"
     # 2) Cada hora: solo lotes nuevos o modificados desde el tablero, para que
     #    el usuario no tenga que esperar al día siguiente para ver su lote.
     - cron: "30 * * * *"
@@ -97,7 +99,7 @@ jobs:
       # ahora los resultados van a Supabase, así que se vuelve a habilitar el
       # workflow por la API en cada corrida diaria.
       - name: Mantener activo el horario
-        if: github.event_name == 'schedule' && github.event.schedule == '0 9 * * *'
+        if: github.event_name == 'schedule' && github.event.schedule == '17 9 * * *'
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh api -X PUT "repos/${{ github.repository }}/actions/workflows/balance_hidrico.yml/enable"

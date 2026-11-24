@@ -69,3 +69,31 @@ def test_si_no_encuentra_el_php_nuevo_falla_para_pasar_a_la_fuente_siguiente(mon
     monkeypatch.setattr(clima_siga, "_pedir", pedir_falso)
     with pytest.raises(ErrorSIGA, match="404"):
         clima_siga.listar_estaciones()
+
+
+def test_la_planilla_se_reintenta_y_se_baja_una_vez_por_corrida(monkeypatch):
+    from src import clima_siga
+
+    import io
+
+    class Resp(io.BytesIO):
+        def __enter__(self): return self
+        def __exit__(self, *a): return False
+
+    llamadas = []
+
+    def urlopen(url, timeout=90):
+        llamadas.append(url)
+        if len(llamadas) == 1:
+            raise TimeoutError("The read operation timed out")
+        return Resp(b"xls")
+
+    monkeypatch.setattr(clima_siga.urllib.request, "urlopen", urlopen)
+    monkeypatch.setattr(clima_siga.time, "sleep", lambda s: None)
+    monkeypatch.setattr(clima_siga, "_planillas", {})
+    # Planilla vacía: alcanza para ver cuántas veces se descargó
+    monkeypatch.setattr(clima_siga, "_leer_excel", lambda b: pd.DataFrame())
+    for _ in range(3):     # tres lotes cerca de la misma estación
+        with pytest.raises(ErrorSIGA, match="Fecha"):
+            clima_siga.descargar_serie("A872907")
+    assert len(llamadas) == 2      # un corte + una descarga, y nada más

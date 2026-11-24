@@ -307,7 +307,7 @@ def correr_lote(lote: Lote, almacen, cdse: tuple[str, str], opciones: Opciones) 
     if lote.recalcular_desde:
         ultima = guardado.balance.ultima_fecha_procesada
         if not guardado.motivo_reinicio and ultima and str(lote.recalcular_desde) <= str(ultima):
-            almacen.rebobinar(lote, guardado, str(lote.recalcular_desde))
+            almacen.rebobinar(lote, guardado, str(lote.recalcular_desde), huella)
         almacen.recalculo_atendido(lote)
     estado = guardado.balance
 
@@ -481,25 +481,29 @@ def correr_lote(lote: Lote, almacen, cdse: tuple[str, str], opciones: Opciones) 
     # con ETo y lluvia en cero, lo que simula un día sin consumo ni aporte y
     # deja una serie que parece completa pero no lo es. Mejor cortar ahí y
     # retomarlos cuando la fuente los publique.
-    sin_clima = df_dias["eto_mm"].isna()
+    sin_clima = df_dias["eto_mm"].isna().reset_index(drop=True)
+    df_dias = df_dias.reset_index(drop=True)
     if sin_clima.any():
-        primer_hueco = sin_clima.idxmax() if sin_clima.iloc[-1] else None
-        if primer_hueco is not None and sin_clima.loc[primer_hueco:].all():
-            recortados = int(sin_clima.loc[primer_hueco:].sum())
-            ultimo_util = df_dias.loc[primer_hueco, "fecha"] - timedelta(days=1)
+        # Comienzo del tramo FINAL sin clima. No es el primer hueco: puede
+        # haber días sueltos sin dato antes, y esos no deben impedir el recorte.
+        corte = len(sin_clima)
+        while corte > 0 and sin_clima.iloc[corte - 1]:
+            corte -= 1
+        if corte < len(sin_clima):
             log.warning(
                 "Los últimos %d días (desde el %s) todavía no tienen datos de "
                 "clima: se procesan hasta el %s y se retomarán más adelante.",
-                recortados,
-                df_dias.loc[primer_hueco, "fecha"].date(),
-                ultimo_util.date(),
+                len(sin_clima) - corte,
+                df_dias.loc[corte, "fecha"].date(),
+                (df_dias.loc[corte, "fecha"] - timedelta(days=1)).date(),
             )
-            df_dias = df_dias.loc[:primer_hueco - 1] if primer_hueco > 0 else df_dias.iloc[0:0]
-        else:
+            df_dias = df_dias.iloc[:corte].copy()
+        sueltos = int(sin_clima.iloc[:corte].sum())
+        if sueltos:
             log.warning(
                 "Hay %d días sueltos sin dato de clima dentro del rango; "
                 "se tratan como sin lluvia ni consumo.",
-                int(sin_clima.sum()),
+                sueltos,
             )
 
     if df_dias.empty:

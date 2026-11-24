@@ -11,6 +11,7 @@ Ver las notas en `calcular_lamina_riego()`.
 from __future__ import annotations
 
 import logging
+from html import escape
 from typing import Optional
 
 import requests
@@ -102,7 +103,9 @@ def armar_mensaje(
     deficit_mm = round(max(0.0, au_max_mm - au_real_mm), 1)
 
     lineas = [
-        f"{emoji} <b>Balance Hídrico — {nombre_lote}</b>",
+        # El nombre lo escribe el usuario: con "&" o "<" sin escapar, Telegram
+        # rechaza el mensaje entero (parse_mode HTML).
+        f"{emoji} <b>Balance Hídrico — {escape(str(nombre_lote))}</b>",
         f"<i>Datos al {fecha}</i>",
         "",
         f"<b>Condición:</b> {etiqueta} ({pct_au:.0f}% de Agua Útil)",
@@ -184,11 +187,19 @@ def enviar_telegram(token: str, chat_id: str, mensaje: str) -> bool:
         if resp.status_code == 200:
             logger.info("Notificación de Telegram enviada.")
             return True
-        logger.error("Telegram respondió %s: %s", resp.status_code, resp.text)
+        logger.error("Telegram respondió %s: %s", resp.status_code,
+                     _sin_token(resp.text, token))
         return False
     except Exception as e:  # noqa: BLE001
-        logger.error("No se pudo enviar la notificación de Telegram: %s", e)
+        # El error de requests trae la URL, y la URL lleva el token del bot.
+        # El log se sube como artifact de un repo público: nunca el token.
+        logger.error("No se pudo enviar la notificación de Telegram: %s",
+                     _sin_token(str(e), token))
         return False
+
+
+def _sin_token(texto: str, token: str) -> str:
+    return texto.replace(token, "<TOKEN>") if token else texto
 
 
 def debe_notificar(

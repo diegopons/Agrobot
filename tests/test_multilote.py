@@ -645,3 +645,80 @@ def test_modo_local_sigue_funcionando(entorno, monkeypatch):
     # Segunda corrida: nada nuevo, y el estado con fechas extra se lee bien
     assert main_mod.main(entorno["cfg"]) == 0
     assert len(pd.read_csv(tmp / "data/serie.csv")) == len(df)
+
+
+def test_los_dias_finales_sin_clima_se_recortan_aunque_haya_huecos_antes(entorno, supabase, monkeypatch):
+    """Un día suelto sin clima en el medio no debe hacer que los últimos días
+    sin clima entren al balance como ceros."""
+    suelto = HOY - timedelta(days=20)
+    desde_falta = HOY - timedelta(days=4)
+
+    def fuentes_con_huecos(cfg, bbox, desde, hasta):
+        def obtener():
+            fechas = pd.date_range(desde, hasta, freq="D")
+            falta = [f == suelto or f >= desde_falta for f in fechas]
+            return pd.DataFrame({
+                "fecha": fechas,
+                "precipitacion_mm": [np.nan if x else 0.0 for x in falta],
+                "eto_mm": [np.nan if x else 4.0 for x in falta],
+            })
+        return [("openmeteo", obtener)], None
+
+    monkeypatch.setattr(main_mod.mod_clima, "armar_fuentes", fuentes_con_huecos)
+    monkeypatch.setenv("BH_LOTE_ID", "l1")
+    main_mod.main(entorno["cfg"])
+
+    ultimo = str((desde_falta - timedelta(days=1)).date())
+    assert _serie(supabase, "l1")[-1]["fecha"] == ultimo
+    assert _estado(supabase, "l1")["ultima_fecha_procesada"] == ultimo
+    # el día suelto sí se procesó (como sin lluvia ni consumo)
+    assert any(f["fecha"] == str(suelto.date()) for f in _serie(supabase, "l1"))
+
+
+def test_si_falla_la_corrida_despues_de_rebobinar_no_queda_hueco(entorno, supabase, monkeypatch):
+    main_mod.main(entorno["cfg"])
+    dia = str((HOY - timedelta(days=8)).date())
+    supabase.t["riegos"] = [{"lote_id": "l1", "fecha": dia, "mm": 12.0}]
+    supabase.update("lotes", {"id": "eq.l1"}, {"recalcular_desde": dia})
+
+    def sin_clima(cfg, bbox, desde, hasta):
+        def obtener():
+            fechas = pd.date_range(desde, hasta, freq="D")
+            return pd.DataFrame({"fecha": fechas, "precipitacion_mm": np.nan, "eto_mm": np.nan})
+        return [("openmeteo", obtener)], None
+
+    monkeypatch.setenv("BH_LOTE_ID", "l1")
+    monkeypatch.setattr(main_mod.mod_clima, "armar_fuentes", sin_clima)
+    main_mod.main(entorno["cfg"])
+
+    # El estado quedó en el día anterior al riego, junto con la serie: sin hueco
+    previo = str((HOY - timedelta(days=9)).date())
+    assert _estado(supabase, "l1")["ultima_fecha_procesada"] == previo
+    assert _serie(supabase, "l1")[-1]["fecha"] == previo
+
+    # Cuando vuelve el clima, se completa con el riego aplicado
+    monkeypatch.setattr(main_mod.mod_clima, "armar_fuentes", _fuentes_falsas)
+    main_mod.main(entorno["cfg"])
+    despues = {f["fecha"]: f for f in _serie(supabase, "l1")}
+    assert despues[dia]["riego_mm"] == 12.0
+    assert max(despues) == str((HOY - timedelta(days=2)).date())
+
+
+def test_el_nombre_del_lote_se_escapa_en_el_aviso():
+    from src.notificaciones import armar_mensaje
+    msg = armar_mensaje(fecha=date.today(), au_real_mm=50, au_max_mm=100, pct_au=50,
+                        ndvi=0.5, etc_mm=4, precipitacion_7d_mm=0, umbral_riego_pct=40,
+                        nombre_lote="Lote 1 & 2 <bajo>")
+    assert "Lote 1 &amp; 2 &lt;bajo&gt;" in msg
+
+
+def test_el_token_de_telegram_no_queda_en_el_log(monkeypatch, caplog):
+    from src import notificaciones
+
+    def post_caido(url, **kw):
+        raise ConnectionError(f"Max retries exceeded with url: {url}")
+
+    monkeypatch.setattr(notificaciones.requests, "post", post_caido)
+    assert notificaciones.enviar_telegram("123:SECRETO", "1", "hola") is False
+    assert "SECRETO" not in caplog.text
+    assert "<TOKEN>" in caplog.text

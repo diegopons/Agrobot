@@ -305,7 +305,8 @@ class AlmacenLocal:
         ruta.parent.mkdir(parents=True, exist_ok=True)
         ruta.write_bytes(png)
 
-    def rebobinar(self, lote: Lote, guardado: EstadoGuardado, desde: str) -> None:
+    def rebobinar(self, lote: Lote, guardado: EstadoGuardado, desde: str,
+                  huella: str) -> None:
         pass
 
     def recalculo_atendido(self, lote: Lote) -> None:
@@ -634,12 +635,17 @@ class AlmacenSupabase:
         })
         return {str(f["fecha"]): float(f["mm"]) for f in filas}
 
-    def rebobinar(self, lote: Lote, guardado: EstadoGuardado, desde: str) -> None:
+    def rebobinar(self, lote: Lote, guardado: EstadoGuardado, desde: str,
+                  huella: str) -> None:
         """Vuelve el estado al cierre del día anterior a `desde` y borra la
         serie desde ahí, para recalcular esos días con los riegos corregidos.
 
         No abre una serie nueva: los días anteriores no cambian, así que
         siguen siendo la misma campaña.
+
+        El estado rebobinado se guarda ANTES de borrar las filas: si la
+        corrida falla después (por ejemplo, sin clima), la próxima retoma
+        desde el día anterior a `desde` en vez de dejar un hueco en la serie.
         """
         previos = self.db.select("balance_diario", {
             "select": "fecha,au_real_mm,prof_raiz_cm,ndvi",
@@ -660,6 +666,7 @@ class AlmacenSupabase:
             campana = lote.cfg["campana"]
             guardado.balance = EstadoBalance.inicial(
                 campana["au_real_inicial_mm"], campana["prof_raiz_inicial_cm"])
+        self._guardar_estado(lote, guardado, huella)
         self.db.delete("balance_diario", {
             **self._filtro(lote), "serie": f"eq.{guardado.serie}", "fecha": f"gte.{desde}"})
         logger.info("Riegos corregidos: se recalcula desde el %s (estado al %s).",

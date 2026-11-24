@@ -43,7 +43,7 @@ de cara al usuario está en castellano rioplatense (voseo).
 ## Trabajo con el usuario
 
 - Commit y push a una rama propia después de cada etapa verificada, no al final.
-- Correr `python -m pytest tests -q` antes de cada commit (hoy 32 pruebas).
+- Correr `python -m pytest tests -q` antes de cada commit (hoy 38 pruebas).
 - Las claves no se piden en el chat: van en `.env` local (ignorado por Git) o en
   los Secrets de GitHub. En la PC del usuario, Python necesita `truststore`
   (`truststore.inject_into_ssl()`) por intercepción TLS.

@@ -19,7 +19,7 @@ Acceso: no hay API pública documentada. El paquete {siga} de R
 (github.com/AgRoMeteorologiaINTA/siga) usa dos endpoints que acá se replican:
 
   * lista de estaciones:
-        CdnaUV0iiERRpFQE.php?param_type=estacion&param_value=
+        <ofuscado>.php?param_type=estacion&param_value=   (hoy MMidUDJTKj6MPyuA.php)
   * serie diaria completa de una estación (Excel, ~2 MB):
         document/series/<id_interno>.xls
 
@@ -40,6 +40,7 @@ import io
 import json
 import logging
 import math
+import re
 import urllib.parse
 import urllib.request
 from typing import Optional
@@ -50,7 +51,11 @@ import pandas as pd
 logger = logging.getLogger(__name__)
 
 BASE = "https://siga.inta.gob.ar/"
-URL_ESTACIONES = BASE + "CdnaUV0iiERRpFQE.php?param_type=estacion&param_value="
+# El nombre del PHP cambia sin aviso (CdnaUV0iiERRpFQE.php dejó de existir a
+# fines de oct/2026). Si este falla, se busca el vigente en el JS del sitio.
+URL_ESTACIONES = BASE + "MMidUDJTKj6MPyuA.php?param_type=estacion&param_value="
+JS_CON_ENDPOINTS = ("js/urlserver.js", "js/global.js")
+_PATRON_ENDPOINT = re.compile(r"([A-Za-z0-9_]+\.php)\?param_type=estacion&param_value=")
 URL_SERIE = BASE + "document/series/{id_interno}.xls"
 
 # El viento de la planilla viene en km/h. Verificado empíricamente el
@@ -84,15 +89,41 @@ def _pedir(url: str, timeout: int = 90) -> bytes:
 # ---------------------------------------------------------------------------
 # Estaciones
 # ---------------------------------------------------------------------------
-def listar_estaciones() -> pd.DataFrame:
-    """Estaciones del SIGA con su ubicación y rango de datos disponible."""
+def _descubrir_url_estaciones() -> Optional[str]:
+    """Lee el JS del sitio del SIGA y devuelve la URL vigente del listado."""
+    for js in JS_CON_ENDPOINTS:
+        try:
+            texto = _pedir(BASE + js, timeout=30).decode("utf-8", "replace")
+        except ErrorSIGA:
+            continue
+        m = _PATRON_ENDPOINT.search(texto)
+        if m:
+            return BASE + m.group(0)
+    return None
+
+
+def _leer_estaciones(url: str) -> list:
     try:
-        datos = json.loads(_pedir(URL_ESTACIONES).decode("utf-8", "replace"))
+        return json.loads(_pedir(url).decode("utf-8", "replace"))
     except json.JSONDecodeError as exc:
         raise ErrorSIGA(
             "El SIGA no devolvió JSON en el listado de estaciones. "
             "Puede haber cambiado el endpoint."
         ) from exc
+
+
+def listar_estaciones() -> pd.DataFrame:
+    """Estaciones del SIGA con su ubicación y rango de datos disponible."""
+    try:
+        datos = _leer_estaciones(URL_ESTACIONES)
+    except ErrorSIGA as exc:
+        nueva = _descubrir_url_estaciones()
+        if not nueva or nueva == URL_ESTACIONES:
+            raise
+        logger.warning("El listado de estaciones del SIGA cambió de dirección: %s "
+                       "(actualizar URL_ESTACIONES en src/clima_siga.py). Antes: %s",
+                       nueva, exc)
+        datos = _leer_estaciones(nueva)
 
     df = pd.DataFrame(datos)
     faltan = {"idInterno", "latitud", "longitud", "nombre"} - set(df.columns)

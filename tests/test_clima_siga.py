@@ -34,3 +34,38 @@ def test_sin_estaciones_activas_falla_para_pasar_a_la_fuente_siguiente():
 def test_sin_columna_de_fecha_se_queda_con_la_mas_cercana():
     e = estacion_mas_cercana(-31.85, -63.75, ESTACIONES.drop(columns="maximoDiario"))
     assert e["id_interno"] == "NH0438"
+
+
+def test_si_cambia_el_php_del_listado_lo_busca_en_el_js(monkeypatch):
+    """INTA renombra el PHP ofuscado sin aviso: se descubre el nuevo en su JS."""
+    import json
+    from src import clima_siga
+
+    pedidos = []
+
+    def pedir_falso(url, timeout=90):
+        pedidos.append(url)
+        if url == clima_siga.URL_ESTACIONES:
+            raise ErrorSIGA("HTTP Error 404: Not Found")
+        if url.endswith("js/urlserver.js"):
+            return b"var URL_MYSQL_ESTACION = 'Nuevo123.php?param_type=estacion&param_value=';"
+        if "Nuevo123.php" in url:
+            return json.dumps([{"idInterno": "A1", "latitud": -31.8, "longitud": -63.7,
+                                "nombre": "X"}]).encode()
+        raise ErrorSIGA("no existe")
+
+    monkeypatch.setattr(clima_siga, "_pedir", pedir_falso)
+    df = clima_siga.listar_estaciones()
+    assert list(df["idInterno"]) == ["A1"]
+    assert pedidos[-1] == clima_siga.BASE + "Nuevo123.php?param_type=estacion&param_value="
+
+
+def test_si_no_encuentra_el_php_nuevo_falla_para_pasar_a_la_fuente_siguiente(monkeypatch):
+    from src import clima_siga
+
+    def pedir_falso(url, timeout=90):
+        raise ErrorSIGA("HTTP Error 404: Not Found")
+
+    monkeypatch.setattr(clima_siga, "_pedir", pedir_falso)
+    with pytest.raises(ErrorSIGA, match="404"):
+        clima_siga.listar_estaciones()

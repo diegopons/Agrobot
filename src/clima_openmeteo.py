@@ -37,6 +37,8 @@ from __future__ import annotations
 
 import json
 import logging
+import time
+import urllib.error
 import urllib.parse
 import urllib.request
 from typing import Iterable
@@ -59,14 +61,28 @@ class ErrorOpenMeteo(RuntimeError):
     """Falla al consultar o interpretar la respuesta de Open-Meteo."""
 
 
+ESPERAS_REINTENTO = (5, 15)   # segundos antes del 2.º y 3.er intento
+
+
 def _pedir(url: str, params: dict, timeout: int = 60) -> dict:
     completa = f"{url}?{urllib.parse.urlencode(params, doseq=True)}"
     logger.debug("Open-Meteo: %s", completa)
-    try:
-        with urllib.request.urlopen(completa, timeout=timeout) as r:
-            datos = json.load(r)
-    except Exception as exc:  # red, timeout, JSON inválido
-        raise ErrorOpenMeteo(f"No se pudo consultar Open-Meteo: {exc}") from exc
+    # Un corte de red suelto (p. ej. "handshake timed out" el 23/11/2026) dejaba
+    # al lote sin clima ese día: se reintenta. Un 4xx no, es un pedido mal armado.
+    for intento, espera in enumerate((0, *ESPERAS_REINTENTO)):
+        if espera:
+            logger.warning("Open-Meteo: reintento %d en %d s.", intento, espera)
+            time.sleep(espera)
+        try:
+            with urllib.request.urlopen(completa, timeout=timeout) as r:
+                datos = json.load(r)
+            break
+        except urllib.error.HTTPError as exc:
+            if exc.code < 500 or intento == len(ESPERAS_REINTENTO):
+                raise ErrorOpenMeteo(f"No se pudo consultar Open-Meteo: {exc}") from exc
+        except Exception as exc:  # red, timeout, JSON inválido
+            if intento == len(ESPERAS_REINTENTO):
+                raise ErrorOpenMeteo(f"No se pudo consultar Open-Meteo: {exc}") from exc
 
     # La API responde 200 con {"error": true, "reason": ...} en varios casos
     if isinstance(datos, dict) and datos.get("error"):
